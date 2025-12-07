@@ -1,6 +1,7 @@
 # THE KRAKEN DREAMS - User Manual
 
-> This is the complete user manual. For quick setup, see [README.md](README.md).
+> This is the complete user manual. For quick setup, see [README.md](README.md).  
+> See [screenshots](screenshots/) for UI previews.
 
 ---
 

@@ -12,7 +12,25 @@ A comprehensive Windows desktop application for recording, transcribing, and tra
 
 ## 🖼️ Screenshots
 
-![Main Interface](screenshots/main.png)
+### Recording & Transcription
+| Record Tab | Transcribe Tab |
+|:----------:|:--------------:|
+| ![Recording](screenshots/recording.png) | ![Transcribe](screenshots/transcribe.png) |
+
+### Speaker Management & Preview
+| Speakers Tab | Preview Tab |
+|:------------:|:-----------:|
+| ![Speakers](screenshots/speakers.png) | ![Preview](screenshots/preview.png) |
+
+### AI Story Generation
+| Bard's Tale | Session Summary |
+|:-----------:|:---------------:|
+| ![Bard's Tale](screenshots/bardstale.png) | ![Summary](screenshots/summary.png) |
+
+### Configuration
+| Settings Dialog |
+|:---------------:|
+| ![Settings](screenshots/settings.png) |
 
 ---
 
