@@ -1,0 +1,13 @@
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0
+Pillow>=10.0.0
+requests>=2.31.0
+tkinterdnd2>=0.3.0
+
+# Optional: Windows toast notifications
+win10toast>=0.9
+
+# Note: WhisperX and Torch are required for transcription but depend on your hardware (CUDA vs CPU)
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# pip install git+https://github.com/m-bain/whisperx.git
