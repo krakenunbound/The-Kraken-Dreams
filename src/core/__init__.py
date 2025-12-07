@@ -14,7 +14,8 @@ from .config import (
     CONFIG_FILE,
     ensure_directories
 )
-from .theme import KRAKEN, apply_theme, get_style_config
+from .theme import KRAKEN, FONT_FAMILY, FONTS, apply_theme, get_style_config
+
 from .llm_providers import (
     OllamaProvider, 
     GroqProvider, 

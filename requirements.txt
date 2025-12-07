@@ -5,9 +5,13 @@ Pillow>=10.0.0
 requests>=2.31.0
 tkinterdnd2>=0.3.0
 
-# Optional: Windows toast notifications
-win10toast>=0.9
+# Cross-platform notifications (Windows, Linux, macOS)
+plyer>=2.1.0
 
 # Note: WhisperX and Torch are required for transcription but depend on your hardware (CUDA vs CPU)
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 # pip install git+https://github.com/m-bain/whisperx.git
+
+# Linux users: you may need to install python3-tk
+# Ubuntu/Debian: sudo apt install python3-tk
+# Fedora: sudo dnf install python3-tkinter

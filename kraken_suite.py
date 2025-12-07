@@ -71,14 +71,14 @@ try:
 except ImportError:
     HAS_DND = False
 
-# Try to import Windows notifications (optional)
+# Try to import cross-platform notifications (optional)
+# plyer works on Windows, Linux, and macOS
 try:
-    from win10toast import ToastNotifier
-    HAS_TOAST = True
-    toaster = ToastNotifier()
+    from plyer import notification as plyer_notification
+    HAS_NOTIFICATIONS = True
 except ImportError:
-    HAS_TOAST = False
-    toaster = None
+    HAS_NOTIFICATIONS = False
+    plyer_notification = None
 
 
 
@@ -821,16 +821,21 @@ class KrakenSuite:
         self.root.after(0, lambda: self.status_bar.config(text=message))
 
     def send_notification(self, title, message, duration=5):
-        """Send a Windows toast notification (if available)."""
-        if HAS_TOAST and toaster:
+        """Send a desktop notification (cross-platform via plyer)."""
+        if HAS_NOTIFICATIONS and plyer_notification:
             try:
                 # Run in thread to avoid blocking
-                threading.Thread(
-                    target=lambda: toaster.show_toast(title, message, duration=duration, threaded=True),
-                    daemon=True
-                ).start()
+                def show_notify():
+                    plyer_notification.notify(
+                        title=title,
+                        message=message,
+                        app_name="The Kraken Dreams",
+                        timeout=duration
+                    )
+                threading.Thread(target=show_notify, daemon=True).start()
             except Exception:
                 pass  # Notifications are optional, fail silently
+
 
     def apply_vocabulary_corrections(self, text):
         """

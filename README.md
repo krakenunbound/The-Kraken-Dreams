@@ -2,11 +2,12 @@
 
 ## D&D Session Recording & Transcription Suite
 
-A comprehensive Windows desktop application for recording, transcribing, and transforming your tabletop RPG sessions into narrative stories.
+A comprehensive desktop application for recording, transcribing, and transforming your tabletop RPG sessions into narrative stories.
 
-**Version:** 1.3.1 | **License:** MIT | **Platform:** Windows 10/11
+**Version:** 1.3.1 | **License:** MIT | **Platform:** Windows, Linux, macOS
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 ---
 
@@ -100,16 +101,20 @@ A comprehensive Windows desktop application for recording, transcribing, and tra
 > Note: Transcription works on CPU but is significantly slower.
 
 ### Software
-- Windows 10/11
+- **Windows 10/11**, **Linux**, or **macOS**
 - Python 3.10-3.12
 - FFmpeg
-- NVIDIA CUDA Toolkit (for GPU acceleration)
+- NVIDIA CUDA Toolkit (optional, for GPU acceleration)
+
 
 ---
 
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
+
+<details>
+<summary><b>🪟 Windows</b></summary>
 
 ```bash
 # Install FFmpeg
@@ -124,6 +129,49 @@ pip install git+https://github.com/m-bain/whisperx.git
 # Install other dependencies
 pip install -r requirements.txt
 ```
+</details>
+
+<details>
+<summary><b>🐧 Linux (Ubuntu/Debian)</b></summary>
+
+```bash
+# Install system dependencies
+sudo apt update
+sudo apt install ffmpeg python3-tk python3-pip
+
+# Install PyTorch with CUDA (GPU)
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Install WhisperX
+pip install git+https://github.com/m-bain/whisperx.git
+
+# Install other dependencies
+pip install -r requirements.txt
+```
+
+**Audio Loopback (System Audio):**
+- PulseAudio: Use `pactl load-module module-loopback` or install `pavucontrol`
+- PipeWire: Use the virtual device feature
+</details>
+
+<details>
+<summary><b>🍎 macOS</b></summary>
+
+```bash
+# Install FFmpeg
+brew install ffmpeg
+
+# Install PyTorch
+pip install torch torchvision torchaudio
+
+# Install WhisperX
+pip install git+https://github.com/m-bain/whisperx.git
+
+# Install other dependencies
+pip install -r requirements.txt
+```
+</details>
+
 
 ### 2. Get HuggingFace Token
 

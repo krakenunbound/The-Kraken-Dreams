@@ -43,6 +43,42 @@ KRAKEN = {
 
 
 # =============================================================================
+# CROSS-PLATFORM FONT CONFIGURATION
+# =============================================================================
+# Font family stack that works on Windows, Linux, and macOS.
+# Falls back gracefully if primary font is not available.
+# =============================================================================
+
+import sys
+
+def get_font_family():
+    """Get the best available font family for the current platform."""
+    if sys.platform == 'win32':
+        return 'Segoe UI'
+    elif sys.platform == 'darwin':  # macOS
+        return 'SF Pro Display'
+    else:  # Linux and others
+        return 'DejaVu Sans'
+
+# Primary UI font - cross-platform
+FONT_FAMILY = get_font_family()
+
+# Font presets for common uses
+FONTS = {
+    'heading': (FONT_FAMILY, 16, 'bold'),
+    'subheading': (FONT_FAMILY, 12, 'bold'),
+    'section': (FONT_FAMILY, 10, 'bold'),
+    'body': (FONT_FAMILY, 10),
+    'small': (FONT_FAMILY, 9),
+    'tiny': (FONT_FAMILY, 8),
+    'button': (FONT_FAMILY, 10),
+    'button_large': (FONT_FAMILY, 11, 'bold'),
+    'entry': (FONT_FAMILY, 10),
+    'mono': ('Consolas' if sys.platform == 'win32' else 'DejaVu Sans Mono', 10),
+}
+
+
+# =============================================================================
 # SPEAKER COLOR PALETTE
 # =============================================================================
 # Distinct colors for differentiating speakers in transcripts.

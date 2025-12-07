@@ -23,19 +23,22 @@
 ### Prerequisites
 
 1. **Python 3.10-3.12** - [Download](https://www.python.org/downloads/)
-   - ✅ Check "Add Python to PATH" during install
+   - ✅ Check "Add Python to PATH" during install (Windows)
    
 2. **FFmpeg** - Required for audio processing
-   ```
-   winget install ffmpeg
-   ```
+   - **Windows:** `winget install ffmpeg`
+   - **Linux:** `sudo apt install ffmpeg` (Ubuntu/Debian)
+   - **macOS:** `brew install ffmpeg`
 
 3. **Git** - Required for WhisperX installation
-   ```
-   winget install Git.Git
-   ```
+   - **Windows:** `winget install Git.Git`
+   - **Linux/macOS:** Usually pre-installed, or use package manager
 
-4. **NVIDIA CUDA** (Optional, for GPU acceleration)
+4. **Tkinter** (Linux only)
+   - **Ubuntu/Debian:** `sudo apt install python3-tk`
+   - **Fedora:** `sudo dnf install python3-tkinter`
+
+5. **NVIDIA CUDA** (Optional, for GPU acceleration)
    - [Download CUDA Toolkit](https://developer.nvidia.com/cuda-downloads)
    - Verify with `nvidia-smi`
 
@@ -54,6 +57,7 @@ pip install torch torchvision torchaudio
 pip install git+https://github.com/m-bain/whisperx.git
 pip install -r requirements.txt
 ```
+
 
 ### HuggingFace Setup (Required)
 
