@@ -330,8 +330,9 @@ class KrakenSuite:
             "7. Desktop Audio: Select your speakers/headphones (captures Discord)",
             "8. Mic/Auxiliary Audio: Select your microphone",
             "",
-            "9. In the main OBS window, you DON'T need any video sources",
-            "10. Just click 'Start Recording' when your session begins",
+            "9. Add a Window Capture source → select your Discord voice chat window",
+            "   (This helps identify speakers later - you'll see who's talking!)",
+            "10. Click 'Start Recording' when your session begins",
             "11. Click 'Stop Recording' when done - file saves automatically",
         ]
 
@@ -354,9 +355,14 @@ class KrakenSuite:
             "• Drag the file onto the TRANSCRIBE tab, or click to browse",
             "• The Kraken will transcribe and identify speakers automatically",
             "",
+            "Why capture Discord video?",
+            "• Discord shows a green ring around whoever is speaking",
+            "• Play back the video while assigning voices in the Speakers tab",
+            "• Much easier than trying to recognize voices by ear alone!",
+            "",
             "Pro Tips:",
-            "• Name your OBS profile 'D&D Audio' for quick access",
-            "• Use Scene Collections to save your audio-only setup",
+            "• Name your OBS profile 'D&D Session' for quick access",
+            "• Use Scene Collections to save your Discord capture setup",
             "• Check audio meters in OBS before starting - both should show activity",
         ]
 
