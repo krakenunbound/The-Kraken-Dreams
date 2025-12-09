@@ -98,13 +98,6 @@ class KrakenSuite:
         # Bind window close event to save position
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
-        # Recording state
-        self.is_recording = False
-        self.mic_data = []
-        self.system_data = []
-        self.sample_rate = 44100
-        self.record_start_time = None
-
         # Transcription state
         self.selected_file = None
         self.is_transcribing = False
@@ -133,7 +126,6 @@ class KrakenSuite:
         self.setup_styles()
         self.transcription_stop_requested = False
         self.setup_ui()
-        self.refresh_audio_devices()
         self.load_settings_to_ui()
         
         # Bind global hotkeys
@@ -141,8 +133,6 @@ class KrakenSuite:
 
     def _setup_hotkeys(self):
         """Set up global keyboard shortcuts."""
-        # F9 to toggle recording
-        self.root.bind('<F9>', lambda e: self.toggle_recording())
         # Ctrl+T to start transcription
         self.root.bind('<Control-t>', lambda e: self.start_transcription() if self.selected_file else None)
         # Ctrl+S to save transcript
@@ -290,84 +280,92 @@ class KrakenSuite:
                                    anchor='w', padx=15, pady=5)
         self.status_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
-    # ==================== TAB 1: RECORD ====================
+    # ==================== TAB 1: RECORD (OBS Guide) ====================
     def setup_record_tab(self):
         container = tk.Frame(self.record_tab, bg=KRAKEN['bg_dark'])
         container.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
 
-        # Device Selection Section
-        devices_frame = self.create_section(container, "🎚️ AUDIO DEVICES")
-        devices_frame.pack(fill=tk.X, pady=(0, 20))
+        # Header
+        tk.Label(container, text="🎬 Recording Your D&D Session", font=('Segoe UI', 18, 'bold'),
+                bg=KRAKEN['bg_dark'], fg=KRAKEN['accent_glow']).pack(anchor='w', pady=(0, 5))
+        tk.Label(container, text="Use OBS Studio to capture both your microphone and Discord/system audio",
+                font=('Segoe UI', 10), bg=KRAKEN['bg_dark'], fg=KRAKEN['text_dim']).pack(anchor='w', pady=(0, 20))
 
-        # Microphone
-        mic_row = tk.Frame(devices_frame, bg=KRAKEN['bg_mid'])
-        mic_row.pack(fill=tk.X, pady=5)
-        tk.Label(mic_row, text="Your Microphone:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=18, anchor='w').pack(side=tk.LEFT)
-        self.mic_combo = ttk.Combobox(mic_row, width=55, state='readonly')
-        self.mic_combo.pack(side=tk.LEFT, padx=(10, 0), fill=tk.X, expand=True)
+        # Download section
+        download_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], padx=15, pady=15)
+        download_frame.pack(fill=tk.X, pady=(0, 15))
 
-        # System Audio
-        sys_row = tk.Frame(devices_frame, bg=KRAKEN['bg_mid'])
-        sys_row.pack(fill=tk.X, pady=5)
-        tk.Label(sys_row, text="System Audio:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=18, anchor='w').pack(side=tk.LEFT)
-        self.system_combo = ttk.Combobox(sys_row, width=55, state='readonly')
-        self.system_combo.pack(side=tk.LEFT, padx=(10, 0), fill=tk.X, expand=True)
+        tk.Label(download_frame, text="Step 1: Download OBS Studio (Free)", font=('Segoe UI', 12, 'bold'),
+                bg=KRAKEN['bg_mid'], fg=KRAKEN['accent_light']).pack(anchor='w')
 
-        # Refresh button
-        refresh_btn = self.create_button(devices_frame, "Refresh Devices", self.refresh_audio_devices)
-        refresh_btn.pack(pady=(15, 5))
+        link_frame = tk.Frame(download_frame, bg=KRAKEN['bg_mid'])
+        link_frame.pack(fill=tk.X, pady=(10, 5))
+        tk.Label(link_frame, text="https://obsproject.com/download", font=('Segoe UI', 11),
+                bg=KRAKEN['bg_mid'], fg=KRAKEN['biolum']).pack(side=tk.LEFT)
 
-        # Output Section
-        output_frame = self.create_section(container, "📁 OUTPUT")
-        output_frame.pack(fill=tk.X, pady=(0, 20))
+        def open_obs_website():
+            import webbrowser
+            webbrowser.open("https://obsproject.com/download")
 
-        folder_row = tk.Frame(output_frame, bg=KRAKEN['bg_mid'])
-        folder_row.pack(fill=tk.X, pady=5)
-        tk.Label(folder_row, text="Save to:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=18, anchor='w').pack(side=tk.LEFT)
-        self.output_folder = tk.StringVar(value=RECORDINGS_DIR)
-        folder_entry = tk.Entry(folder_row, textvariable=self.output_folder, font=('Segoe UI', 10),
-                               bg=KRAKEN['bg_widget'], fg=KRAKEN['text'], insertbackground=KRAKEN['text'],
-                               relief='flat', bd=0)
-        folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 10), ipady=5)
-        browse_btn = self.create_button(folder_row, "Browse", self.browse_output_folder, small=True)
-        browse_btn.pack(side=tk.RIGHT)
+        open_btn = tk.Button(link_frame, text="Open Download Page", font=('Segoe UI', 10),
+                            bg=KRAKEN['accent'], fg=KRAKEN['text_bright'], bd=0, padx=15, pady=5,
+                            cursor='hand2', command=open_obs_website)
+        open_btn.pack(side=tk.LEFT, padx=(20, 0))
 
-        # Recording Control Section
-        control_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        control_frame.pack(fill=tk.X, pady=30)
+        # Setup instructions
+        setup_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], padx=15, pady=15)
+        setup_frame.pack(fill=tk.X, pady=(0, 15))
 
-        # Big record button
-        self.record_btn = tk.Button(control_frame, text="⏺ START RECORDING", font=('Segoe UI', 16, 'bold'),
-                                   bg=KRAKEN['warning'], fg=KRAKEN['text_bright'], activebackground='#cc3333',
-                                   activeforeground=KRAKEN['text_bright'], width=25, height=2, bd=0,
-                                   cursor='hand2', command=self.toggle_recording)
-        self.record_btn.pack(pady=10)
+        tk.Label(setup_frame, text="Step 2: Configure OBS for Audio Recording", font=('Segoe UI', 12, 'bold'),
+                bg=KRAKEN['bg_mid'], fg=KRAKEN['accent_light']).pack(anchor='w', pady=(0, 10))
 
-        # Timer
-        self.record_timer = tk.Label(control_frame, text="00:00:00", font=('Consolas', 36, 'bold'),
-                                    bg=KRAKEN['bg_dark'], fg=KRAKEN['accent_glow'])
-        self.record_timer.pack(pady=15)
+        instructions = [
+            "1. Open OBS Studio and go to Settings → Output",
+            "2. Set Output Mode to 'Advanced', then select Recording tab",
+            "3. Set Recording Format to 'mp4' or 'mkv' (mkv is safer if OBS crashes)",
+            "4. Set Audio Encoder to 'FFmpeg AAC' or similar",
+            "",
+            "5. Go to Settings → Audio",
+            "6. Set Sample Rate to 48kHz",
+            "7. Desktop Audio: Select your speakers/headphones (captures Discord)",
+            "8. Mic/Auxiliary Audio: Select your microphone",
+            "",
+            "9. In the main OBS window, you DON'T need any video sources",
+            "10. Just click 'Start Recording' when your session begins",
+            "11. Click 'Stop Recording' when done - file saves automatically",
+        ]
 
-        # Level meters
-        meters_frame = self.create_section(container, "📊 LEVELS")
-        meters_frame.pack(fill=tk.X)
+        for instruction in instructions:
+            if instruction == "":
+                tk.Frame(setup_frame, height=5, bg=KRAKEN['bg_mid']).pack()
+            else:
+                tk.Label(setup_frame, text=instruction, font=('Segoe UI', 10),
+                        bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], anchor='w').pack(anchor='w', pady=1)
 
-        mic_meter_row = tk.Frame(meters_frame, bg=KRAKEN['bg_mid'])
-        mic_meter_row.pack(fill=tk.X, pady=3)
-        tk.Label(mic_meter_row, text="MIC", font=('Segoe UI', 9, 'bold'), bg=KRAKEN['bg_mid'],
-                fg=KRAKEN['text_dim'], width=8).pack(side=tk.LEFT)
-        self.mic_level = ttk.Progressbar(mic_meter_row, length=400, mode='determinate', maximum=100)
-        self.mic_level.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
+        # Tips section
+        tips_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], padx=15, pady=15)
+        tips_frame.pack(fill=tk.X, pady=(0, 15))
 
-        sys_meter_row = tk.Frame(meters_frame, bg=KRAKEN['bg_mid'])
-        sys_meter_row.pack(fill=tk.X, pady=3)
-        tk.Label(sys_meter_row, text="SYSTEM", font=('Segoe UI', 9, 'bold'), bg=KRAKEN['bg_mid'],
-                fg=KRAKEN['text_dim'], width=8).pack(side=tk.LEFT)
-        self.system_level = ttk.Progressbar(sys_meter_row, length=400, mode='determinate', maximum=100)
-        self.system_level.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
+        tk.Label(tips_frame, text="Step 3: After Recording", font=('Segoe UI', 12, 'bold'),
+                bg=KRAKEN['bg_mid'], fg=KRAKEN['accent_light']).pack(anchor='w', pady=(0, 10))
+
+        tips = [
+            "• Find your recording in: C:\\Users\\[You]\\Videos (default OBS location)",
+            "• Drag the file onto the TRANSCRIBE tab, or click to browse",
+            "• The Kraken will transcribe and identify speakers automatically",
+            "",
+            "Pro Tips:",
+            "• Name your OBS profile 'D&D Audio' for quick access",
+            "• Use Scene Collections to save your audio-only setup",
+            "• Check audio meters in OBS before starting - both should show activity",
+        ]
+
+        for tip in tips:
+            if tip == "":
+                tk.Frame(tips_frame, height=5, bg=KRAKEN['bg_mid']).pack()
+            else:
+                tk.Label(tips_frame, text=tip, font=('Segoe UI', 10),
+                        bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], anchor='w').pack(anchor='w', pady=1)
 
     # ==================== TAB 2: TRANSCRIBE ====================
     def setup_transcribe_tab(self):
@@ -864,182 +862,6 @@ class KrakenSuite:
         
         return corrected
 
-    # ==================== RECORDING FUNCTIONS ====================
-
-    def refresh_audio_devices(self):
-        devices = sd.query_devices()
-        input_devices = [(i, d['name']) for i, d in enumerate(devices) if d['max_input_channels'] > 0]
-        output_devices = [(i, d['name']) for i, d in enumerate(devices) if d['max_output_channels'] > 0]
-
-        # Mic dropdown: only input devices
-        mic_device_list = [f"{i}: {name}" for i, name in input_devices]
-        self.mic_combo['values'] = mic_device_list
-
-        # System audio dropdown: inputs + outputs (for loopback capture)
-        system_device_list = [f"{i}: {name}" for i, name in input_devices]
-        for i, name in output_devices:
-            if name not in [n for _, n in input_devices]:
-                system_device_list.append(f"{i}: [OUTPUT] {name}")
-        self.system_combo['values'] = system_device_list
-
-        # Get saved device preferences
-        saved_mic = self.config.get("mic_device", "")
-        saved_system = self.config.get("system_device", "")
-
-        # Try to select saved microphone device
-        mic_selected = False
-        if saved_mic:
-            for idx, (i, name) in enumerate(input_devices):
-                if saved_mic in name:
-                    self.mic_combo.current(idx)
-                    mic_selected = True
-                    break
-
-        # Fallback: Auto-select mic if no saved preference matched
-        if not mic_selected:
-            for idx, (i, name) in enumerate(input_devices):
-                if "Yeti" in name and "WASAPI" not in name:
-                    self.mic_combo.current(idx)
-                    mic_selected = True
-                    break
-            if not mic_selected and input_devices:
-                self.mic_combo.current(0)
-
-        # Try to select saved system audio device (check both inputs and outputs)
-        system_selected = False
-        if saved_system:
-            # Check if it's an output device selection
-            check_name = saved_system.replace("[OUTPUT] ", "") if saved_system.startswith("[OUTPUT]") else saved_system
-            for idx, item in enumerate(system_device_list):
-                if check_name in item:
-                    self.system_combo.current(idx)
-                    system_selected = True
-                    break
-
-        # Fallback: Auto-select system audio if no saved preference matched
-        if not system_selected:
-            for idx, (i, name) in enumerate(input_devices):
-                if "Stereo Mix" in name:
-                    self.system_combo.current(idx)
-                    system_selected = True
-                    break
-            if not system_selected and input_devices:
-                self.system_combo.current(0)
-
-    def browse_output_folder(self):
-        folder = filedialog.askdirectory(initialdir=self.output_folder.get())
-        if folder:
-            self.output_folder.set(folder)
-
-    def get_device_id(self, combo_value):
-        if combo_value:
-            return int(combo_value.split(":")[0])
-        return None
-
-    def toggle_recording(self):
-        if self.is_recording:
-            self.stop_recording()
-        else:
-            self.start_recording()
-
-    def start_recording(self):
-        mic_id = self.get_device_id(self.mic_combo.get())
-        system_id = self.get_device_id(self.system_combo.get())
-
-        if mic_id is None or system_id is None:
-            messagebox.showerror("Error", "Please select both audio devices")
-            return
-
-        self.mic_data = []
-        self.system_data = []
-        self.is_recording = True
-        self.record_start_time = time.time()
-
-        # Start recording threads
-        self.mic_thread = threading.Thread(target=self.record_device, args=(mic_id, self.mic_data, 1, self.mic_level), daemon=True)
-        self.system_thread = threading.Thread(target=self.record_device, args=(system_id, self.system_data, 2, self.system_level), daemon=True)
-
-        self.mic_thread.start()
-        self.system_thread.start()
-
-        self.record_btn.config(text="⏹ STOP RECORDING", bg='#aa3333')
-        self.set_status("Recording in progress...")
-        self.update_record_timer()
-
-    def record_device(self, device_id, data_list, channels, level_bar):
-        try:
-            with sd.InputStream(device=device_id, channels=channels, samplerate=self.sample_rate) as stream:
-                while self.is_recording:
-                    audio, _ = stream.read(1024)
-                    data_list.append(audio.copy())
-                    # Update level meter
-                    level = min(100, int(np.abs(audio).mean() * 500))
-                    self.root.after(0, lambda l=level, b=level_bar: b.config(value=l))
-        except Exception as e:
-            self.root.after(0, lambda: self.log(f"Recording error: {e}"))
-
-    def update_record_timer(self):
-        if self.is_recording:
-            elapsed = int(time.time() - self.record_start_time)
-            h, m, s = elapsed // 3600, (elapsed % 3600) // 60, elapsed % 60
-            self.record_timer.config(text=f"{h:02d}:{m:02d}:{s:02d}")
-            self.root.after(1000, self.update_record_timer)
-
-    def stop_recording(self):
-        self.is_recording = False
-        time.sleep(0.5)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = os.path.join(self.output_folder.get(), f"dnd_session_{timestamp}.wav")
-
-        # Combine and save audio
-        try:
-            mic_audio = np.concatenate(self.mic_data) if self.mic_data else np.zeros((1024, 1))
-            system_audio = np.concatenate(self.system_data) if self.system_data else np.zeros((1024, 2))
-
-            if mic_audio.ndim == 1:
-                mic_audio = mic_audio.reshape(-1, 1)
-            if system_audio.ndim == 1:
-                system_audio = system_audio.reshape(-1, 1)
-
-            min_len = min(len(mic_audio), len(system_audio))
-            mic_audio = mic_audio[:min_len]
-            system_audio = system_audio[:min_len]
-
-            if mic_audio.shape[1] == 1:
-                mic_stereo = np.column_stack([mic_audio, mic_audio])
-            else:
-                mic_stereo = mic_audio[:, :2]
-
-            if system_audio.shape[1] == 1:
-                sys_stereo = np.column_stack([system_audio, system_audio])
-            else:
-                sys_stereo = system_audio[:, :2]
-
-            mixed = np.clip(mic_stereo * 0.7 + sys_stereo * 0.7, -1.0, 1.0)
-            sf.write(output_path, mixed, self.sample_rate)
-
-            self.record_btn.config(text="⏺ START RECORDING", bg=KRAKEN['warning'])
-            self.mic_level.config(value=0)
-            self.system_level.config(value=0)
-            self.set_status(f"Saved: {output_path}")
-
-            # Auto-load into transcribe tab
-            self.selected_file = output_path
-            self.file_label.config(text=f"Ready: {os.path.basename(output_path)}")
-            self.drop_zone.config(text=f"🐙\n{os.path.basename(output_path)[:15]}", fg=KRAKEN['biolum'])
-
-            # Check if auto-transcribe is enabled
-            if self.config.get("auto_transcribe", False):
-                # Switch to transcribe tab and start transcription
-                self.notebook.select(self.transcribe_tab)
-                self.log("Auto-transcribe enabled - starting transcription...")
-                self.root.after(500, self.start_transcription)  # Small delay to let UI update
-            else:
-                messagebox.showinfo("Recording Complete", f"Saved to:\n{output_path}\n\nSwitch to TRANSCRIBE tab to process.")
-
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save recording:\n{e}")
 
 
     # ==================== TRANSCRIPTION FUNCTIONS ====================
@@ -2926,8 +2748,9 @@ Write the session recap:"""
         """
         def on_settings_saved():
             """Callback when settings are saved - refresh UI elements."""
+            # Reload config from file to ensure we have the latest saved values
+            self.config = load_config()
             self.refresh_models()
-            self.refresh_audio_devices()
             self.set_status("Settings saved!")
         
         # Use the modular settings dialog
