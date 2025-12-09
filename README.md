@@ -186,9 +186,12 @@ This app does **not** include built-in recording. Use [OBS Studio](https://obspr
 2. **Configure audio sources:**
    - Desktop Audio → Your speakers/headphones (captures Discord)
    - Mic/Auxiliary Audio → Your microphone
-3. **Set output format** to MP4 or MKV (Settings → Output)
-4. **Click "Start Recording"** when your session begins
-5. **Drag the recorded file** into The Kraken Dreams' Transcribe tab
+3. **Add a Window Capture** → Select your Discord voice chat window
+4. **Set output format** to MP4 or MKV (Settings → Output)
+5. **Click "Start Recording"** when your session begins
+6. **Drag the recorded file** into The Kraken Dreams' Transcribe tab
+
+**Why capture Discord video?** Discord shows a green ring around whoever is speaking. When assigning names in the Speakers tab, you can play back the video to easily see who was talking - much easier than recognizing voices by ear!
 
 > The Record tab in the app provides detailed setup instructions.
 
@@ -203,11 +206,9 @@ The-Kraken-Dreams/
 ├── src/                     # Source modules
 │   ├── core/                # Core functionality
 │   └── ui/                  # UI components
-├── docs/                    # Documentation
-│   └── HOW_TO.md           # Quick-start guide
 ├── screenshots/             # Application screenshots
-├── transcripts/             # Transcript files (gitignored)
-└── avatars/                 # Character images - see below
+├── transcripts/             # Saved transcripts (auto-created, gitignored)
+└── avatars/                 # Character images (auto-created, gitignored)
 ```
 
 ### Avatars Folder
@@ -220,18 +221,6 @@ The `avatars/` folder is where you store character portraits:
 - **How to use** - Click the avatar circle in the Speakers tab to assign images
 
 Store player character portraits, NPC images, or any artwork you want associated with speakers in your transcripts.
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [HOW_TO.md](docs/HOW_TO.md) | Quick-start guide |
-| [KRAKEN_README.md](KRAKEN_README.md) | Full user manual |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [TODO.md](TODO.md) | Roadmap |
-| [BUGS.md](BUGS.md) | Known issues |
 
 ---
 
@@ -248,7 +237,7 @@ Store player character portraits, NPC images, or any artwork you want associated
 
 ## 🤝 Contributing
 
-Contributions welcome! See [TODO.md](TODO.md) for planned features.
+Contributions welcome!
 
 - Report bugs via GitHub Issues
 - Submit pull requests
