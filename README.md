@@ -1,10 +1,10 @@
 # THE KRAKEN DREAMS 🐙
 
-## D&D Session Recording & Transcription Suite
+## D&D Session Transcription & Narrative Suite
 
-A comprehensive desktop application for recording, transcribing, and transforming your tabletop RPG sessions into narrative stories.
+A desktop application for transcribing and transforming your tabletop RPG sessions into narrative stories.
 
-**Version:** 1.3.1 | **License:** MIT | **Platform:** Windows, Linux, macOS
+**Version:** 1.4.0 | **License:** MIT | **Platform:** Windows, Linux, macOS
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -13,20 +13,15 @@ A comprehensive desktop application for recording, transcribing, and transformin
 
 ## 🖼️ Screenshots
 
-### Recording & Transcription
-| Record Tab | Transcribe Tab |
-|:----------:|:--------------:|
-| ![Recording](screenshots/recording.png) | ![Transcribe](screenshots/transcribe.png) |
+### Transcription & Speaker Management
+| Transcribe Tab | Speakers Tab |
+|:--------------:|:------------:|
+| ![Transcribe](screenshots/transcribe.png) | ![Speakers](screenshots/speakers.png) |
 
-### Speaker Management & Preview
-| Speakers Tab | Preview Tab |
-|:------------:|:-----------:|
-| ![Speakers](screenshots/speakers.png) | ![Preview](screenshots/preview.png) |
-
-### AI Story Generation
-| Bard's Tale | Session Summary |
-|:-----------:|:---------------:|
-| ![Bard's Tale](screenshots/bardstale.png) | ![Summary](screenshots/summary.png) |
+### Preview & AI Story Generation
+| Preview Tab | Bard's Tale |
+|:-----------:|:-----------:|
+| ![Preview](screenshots/preview.png) | ![Bard's Tale](screenshots/bardstale.png) |
 
 ### Configuration
 | Settings Dialog |
@@ -37,11 +32,8 @@ A comprehensive desktop application for recording, transcribing, and transformin
 
 ## ✨ Features
 
-### 🎙️ Recording
-- **Dual audio capture** - Record microphone + system audio (Discord) simultaneously
-- **Live level meters** - Visual audio monitoring
-- **Auto-transcribe** - Start transcription automatically after recording
-- **Hotkey support** - F9 to start/stop recording from anywhere
+### 🎬 Recording (via OBS Studio)
+The app includes a guide for recording your sessions with [OBS Studio](https://obsproject.com/) (free), which reliably captures both your microphone and system audio (Discord). After recording, simply drag your file into the Transcribe tab.
 
 ### 📝 Transcription
 - **WhisperX integration** - Fast, accurate speech-to-text
@@ -82,7 +74,6 @@ A comprehensive desktop application for recording, transcribing, and transformin
 
 | Key | Action |
 |-----|--------|
-| **F9** | Start/Stop Recording |
 | **Ctrl+T** | Begin Transcription |
 | **Ctrl+S** | Save Transcript |
 | **Ctrl+F** | Search All Transcripts |
@@ -105,6 +96,7 @@ A comprehensive desktop application for recording, transcribing, and transformin
 - Python 3.10-3.12
 - FFmpeg
 - NVIDIA CUDA Toolkit (optional, for GPU acceleration)
+- [OBS Studio](https://obsproject.com/) (for recording sessions)
 
 
 ---
@@ -148,10 +140,6 @@ pip install git+https://github.com/m-bain/whisperx.git
 # Install other dependencies
 pip install -r requirements.txt
 ```
-
-**Audio Loopback (System Audio):**
-- PulseAudio: Use `pactl load-module module-loopback` or install `pavucontrol`
-- PipeWire: Use the virtual device feature
 </details>
 
 <details>
@@ -190,19 +178,34 @@ python kraken_suite.py
 
 ---
 
+## 🎬 Recording Your Sessions
+
+This app does **not** include built-in recording. Use [OBS Studio](https://obsproject.com/) (free) to capture your sessions:
+
+1. **Download OBS** from [obsproject.com](https://obsproject.com/download)
+2. **Configure audio sources:**
+   - Desktop Audio → Your speakers/headphones (captures Discord)
+   - Mic/Auxiliary Audio → Your microphone
+3. **Set output format** to MP4 or MKV (Settings → Output)
+4. **Click "Start Recording"** when your session begins
+5. **Drag the recorded file** into The Kraken Dreams' Transcribe tab
+
+> The Record tab in the app provides detailed setup instructions.
+
+---
+
 ## 📁 Project Structure
 
 ```
-audio extract/
+The-Kraken-Dreams/
 ├── kraken_suite.py          # Main application
 ├── requirements.txt         # Python dependencies
 ├── src/                     # Source modules
-│   ├── core/                # Core functionality (13 modules)
-│   └── ui/                  # UI components (4 modules)
+│   ├── core/                # Core functionality
+│   └── ui/                  # UI components
 ├── docs/                    # Documentation
 │   └── HOW_TO.md           # Quick-start guide
 ├── screenshots/             # Application screenshots
-├── recordings/              # Audio recordings (gitignored)
 ├── transcripts/             # Transcript files (gitignored)
 └── avatars/                 # Character images - see below
 ```
@@ -238,9 +241,8 @@ Store player character portraits, NPC images, or any artwork you want associated
 |-------|----------|
 | "No module named 'whisperx'" | `pip install git+https://github.com/m-bain/whisperx.git` |
 | "CUDA not available" | Reinstall PyTorch with CUDA (see Quick Start) |
-| No system audio | Use `[OUTPUT]` device in Settings for loopback capture |
 | Drag-drop not working | `pip install tkinterdnd2` |
-| Settings too tall | Scroll down - the dialog is now scrollable |
+| Settings too tall | Scroll down - the dialog is scrollable |
 
 ---
 
@@ -260,6 +262,7 @@ Contributions welcome! See [TODO.md](TODO.md) for planned features.
 - [Pyannote](https://github.com/pyannote/pyannote-audio) - Speaker diarization
 - [Ollama](https://ollama.ai/) - Local LLM inference
 - [Groq](https://groq.com/) - Cloud LLM inference
+- [OBS Studio](https://obsproject.com/) - Session recording
 
 ---
 
