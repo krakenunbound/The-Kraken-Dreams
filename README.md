@@ -25,7 +25,7 @@ A desktop application for transcribing and transforming your tabletop RPG sessio
 ### Configuration
 | Settings Dialog |
 |:---------------:|
-| ![Settings](screenshots/settings.png) |
+| ![Settings](screenshots/settings_v1.5.png) |
 
 ---
 
