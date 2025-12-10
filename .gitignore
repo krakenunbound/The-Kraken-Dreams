@@ -9,6 +9,18 @@ _archive/
 session*
 Partial*
 Zhree's Tale.txt
+*.txt # Ignore root text files (often transcript dumps)
+!requirements.txt
+!LICENSE
+!README.md
+!HOW_TO.md
+!TODO.md
+!BUGS.md
+!CHANGELOG.md
+
+# Audio Extraction Temps
+_temp*
+_temp_audio.wav
 
 # Generated Transcripts and Metadata
 *_notes.txt
@@ -31,9 +43,11 @@ avatars/
 kraken_config.json
 custom_vocabulary.txt
 .env
+.env.local
 
 # Database
 *.db
+*.sqlite
 
 # Logs
 *.log
@@ -42,7 +56,7 @@ custom_vocabulary.txt
 .vscode/
 .idea/
 .claude/
-
+.git/
 
 # OS
 Thumbs.db

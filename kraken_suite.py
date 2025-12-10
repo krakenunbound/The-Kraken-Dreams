@@ -2,7 +2,7 @@
 THE KRAKEN DREAMS - D&D Session Recording & Transcription
 A dark-themed application for recording, transcribing, and organizing your tabletop sessions.
 
-Version: 1.3.1
+Version: 1.4.0
 This is the main application entry point. Core functionality is organized in src/ modules.
 """
 
@@ -22,6 +22,10 @@ import subprocess
 import gc
 import requests
 from datetime import datetime
+try:
+    import vlc
+except ImportError:
+    vlc = None
 
 # =============================================================================
 # MODULAR IMPORTS - Core functionality from src/ package
@@ -58,6 +62,15 @@ ensure_directories()
 # =============================================================================
 
 # Try to import PIL for avatar images
+
+from src.core.transcription import TranscriptionManager
+from src.ui.tabs import (
+    setup_record_tab, setup_transcribe_tab, 
+    setup_speakers_tab, setup_preview_tab, setup_bard_tab
+)
+from src.ui.widgets import create_button, create_section
+from src.ui.video_player import VideoPlayerWindow
+
 try:
     from PIL import Image, ImageTk, ImageDraw
     HAS_PIL = True
@@ -103,9 +116,12 @@ class KrakenSuite:
         self.is_transcribing = False
 
         # Playback state
-        self.playback_process = None
+        self.playback_process = None # Deprecated, kept for safety
+        self.vlc_instance = vlc.Instance() if vlc else None
+        self.player = self.vlc_instance.media_player_new() if self.vlc_instance else None
         self.is_playing = False
         self.is_paused = False
+        self.is_scrubbing = False
         self.playback_start_time = None
         self.playback_offset = 0
         self.audio_duration = 0  # Total duration in seconds
@@ -122,6 +138,11 @@ class KrakenSuite:
         self.speaker_genders = {}
         self.segments_data = []
         self.temp_audio_file = None
+        self.video_window = None
+
+        # Bard logic state
+        self.bard_running = False
+        self.bard_stop_requested = False
 
         self.setup_styles()
         self.transcription_stop_requested = False
@@ -129,6 +150,7 @@ class KrakenSuite:
         self.load_settings_to_ui()
         
         # Bind global hotkeys
+        self.transcription_manager = TranscriptionManager(self)
         self._setup_hotkeys()
 
     def _setup_hotkeys(self):
@@ -243,11 +265,11 @@ class KrakenSuite:
         subtitle.pack(side=tk.LEFT, padx=(15, 0), pady=(8, 0))
 
         # Settings button in header
-        settings_btn = self.create_button(header, "⚙️ Settings", self.show_settings_dialog, small=True)
+        settings_btn = create_button(header, "⚙️ Settings", self.show_settings_dialog, small=True)
         settings_btn.pack(side=tk.RIGHT, padx=5)
         
         # Search button in header
-        search_btn = self.create_button(header, "🔍 Search", self.show_search_dialog, small=True)
+        search_btn = create_button(header, "🔍 Search", self.show_search_dialog, small=True)
         search_btn.pack(side=tk.RIGHT, padx=5)
 
 
@@ -268,11 +290,11 @@ class KrakenSuite:
         self.notebook.add(self.preview_tab, text='  👁️ PREVIEW  ')
         self.notebook.add(self.bard_tab, text="  🎭 BARD'S TALE  ")
 
-        self.setup_record_tab()
-        self.setup_transcribe_tab()
-        self.setup_speakers_tab()
-        self.setup_preview_tab()
-        self.setup_bard_tab()
+        setup_record_tab(self)
+        setup_transcribe_tab(self)
+        setup_speakers_tab(self)
+        setup_preview_tab(self)
+        setup_bard_tab(self)
 
         # Status bar
         self.status_bar = tk.Label(main_container, text="Ready to unleash the Kraken...",
@@ -280,524 +302,7 @@ class KrakenSuite:
                                    anchor='w', padx=15, pady=5)
         self.status_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
-    # ==================== TAB 1: RECORD (OBS Guide) ====================
-    def setup_record_tab(self):
-        container = tk.Frame(self.record_tab, bg=KRAKEN['bg_dark'])
-        container.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
 
-        # Header
-        tk.Label(container, text="🎬 Recording Your D&D Session", font=('Segoe UI', 18, 'bold'),
-                bg=KRAKEN['bg_dark'], fg=KRAKEN['accent_glow']).pack(anchor='w', pady=(0, 5))
-        tk.Label(container, text="Use OBS Studio to capture both your microphone and Discord/system audio",
-                font=('Segoe UI', 10), bg=KRAKEN['bg_dark'], fg=KRAKEN['text_dim']).pack(anchor='w', pady=(0, 20))
-
-        # Download section
-        download_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], padx=15, pady=15)
-        download_frame.pack(fill=tk.X, pady=(0, 15))
-
-        tk.Label(download_frame, text="Step 1: Download OBS Studio (Free)", font=('Segoe UI', 12, 'bold'),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['accent_light']).pack(anchor='w')
-
-        link_frame = tk.Frame(download_frame, bg=KRAKEN['bg_mid'])
-        link_frame.pack(fill=tk.X, pady=(10, 5))
-        tk.Label(link_frame, text="https://obsproject.com/download", font=('Segoe UI', 11),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['biolum']).pack(side=tk.LEFT)
-
-        def open_obs_website():
-            import webbrowser
-            webbrowser.open("https://obsproject.com/download")
-
-        open_btn = tk.Button(link_frame, text="Open Download Page", font=('Segoe UI', 10),
-                            bg=KRAKEN['accent'], fg=KRAKEN['text_bright'], bd=0, padx=15, pady=5,
-                            cursor='hand2', command=open_obs_website)
-        open_btn.pack(side=tk.LEFT, padx=(20, 0))
-
-        # Setup instructions
-        setup_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], padx=15, pady=15)
-        setup_frame.pack(fill=tk.X, pady=(0, 15))
-
-        tk.Label(setup_frame, text="Step 2: Configure OBS for Audio Recording", font=('Segoe UI', 12, 'bold'),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['accent_light']).pack(anchor='w', pady=(0, 10))
-
-        instructions = [
-            "1. Open OBS Studio and go to Settings → Output",
-            "2. Set Output Mode to 'Advanced', then select Recording tab",
-            "3. Set Recording Format to 'mp4' or 'mkv' (mkv is safer if OBS crashes)",
-            "4. Set Audio Encoder to 'FFmpeg AAC' or similar",
-            "",
-            "5. Go to Settings → Audio",
-            "6. Set Sample Rate to 48kHz",
-            "7. Desktop Audio: Select your speakers/headphones (captures Discord)",
-            "8. Mic/Auxiliary Audio: Select your microphone",
-            "",
-            "9. Add a Window Capture source → select your Discord voice chat window",
-            "   (This helps identify speakers later - you'll see who's talking!)",
-            "10. Click 'Start Recording' when your session begins",
-            "11. Click 'Stop Recording' when done - file saves automatically",
-        ]
-
-        for instruction in instructions:
-            if instruction == "":
-                tk.Frame(setup_frame, height=5, bg=KRAKEN['bg_mid']).pack()
-            else:
-                tk.Label(setup_frame, text=instruction, font=('Segoe UI', 10),
-                        bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], anchor='w').pack(anchor='w', pady=1)
-
-        # Tips section
-        tips_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], padx=15, pady=15)
-        tips_frame.pack(fill=tk.X, pady=(0, 15))
-
-        tk.Label(tips_frame, text="Step 3: After Recording", font=('Segoe UI', 12, 'bold'),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['accent_light']).pack(anchor='w', pady=(0, 10))
-
-        tips = [
-            "• Find your recording in: C:\\Users\\[You]\\Videos (default OBS location)",
-            "• Drag the file onto the TRANSCRIBE tab, or click to browse",
-            "• The Kraken will transcribe and identify speakers automatically",
-            "",
-            "Why capture Discord video?",
-            "• Discord shows a green ring around whoever is speaking",
-            "• Play back the video while assigning voices in the Speakers tab",
-            "• Much easier than trying to recognize voices by ear alone!",
-            "",
-            "Pro Tips:",
-            "• Name your OBS profile 'D&D Session' for quick access",
-            "• Use Scene Collections to save your Discord capture setup",
-            "• Check audio meters in OBS before starting - both should show activity",
-        ]
-
-        for tip in tips:
-            if tip == "":
-                tk.Frame(tips_frame, height=5, bg=KRAKEN['bg_mid']).pack()
-            else:
-                tk.Label(tips_frame, text=tip, font=('Segoe UI', 10),
-                        bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], anchor='w').pack(anchor='w', pady=1)
-
-    # ==================== TAB 2: TRANSCRIBE ====================
-    def setup_transcribe_tab(self):
-        container = tk.Frame(self.transcribe_tab, bg=KRAKEN['bg_dark'])
-        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        # Top section - file selection (compact)
-        top_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        top_frame.pack(fill=tk.X, pady=(0, 10))
-
-        # Drop zone - smaller, on the left
-        self.drop_zone = tk.Label(top_frame,
-            text="🐙\nDrop file or click",
-            font=('Segoe UI', 11), bg=KRAKEN['bg_mid'], fg=KRAKEN['text_dim'],
-            relief='ridge', bd=2, cursor='hand2', justify='center', width=20)
-        self.drop_zone.pack(side=tk.LEFT, padx=(0, 15), ipady=15)
-        self.drop_zone.bind('<Button-1>', self.browse_media_file)
-
-        # Setup drag and drop if available
-        if HAS_DND:
-            try:
-                self.drop_zone.drop_target_register(DND_FILES)
-                self.drop_zone.dnd_bind('<<Drop>>', self.on_file_drop)
-            except:
-                pass
-
-        # Right side - file info and buttons
-        right_frame = tk.Frame(top_frame, bg=KRAKEN['bg_dark'])
-        right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # File info
-        self.file_label = tk.Label(right_frame, text="No file selected", font=('Segoe UI', 12),
-                                  bg=KRAKEN['bg_dark'], fg=KRAKEN['text_dim'], anchor='w')
-        self.file_label.pack(fill=tk.X, pady=(5, 10))
-
-        # Button row
-        btn_frame = tk.Frame(right_frame, bg=KRAKEN['bg_dark'])
-        btn_frame.pack(fill=tk.X)
-
-        # Transcribe button
-        self.transcribe_btn = self.create_button(btn_frame, "🔮 BEGIN TRANSCRIPTION", self.start_transcription, large=True)
-        self.transcribe_btn.pack(side=tk.LEFT, padx=(0, 10))
-
-        # Stop button
-        self.stop_transcribe_btn = self.create_button(btn_frame, "⏹ STOP", self.stop_transcription, large=True)
-        self.stop_transcribe_btn.pack(side=tk.LEFT)
-        self.stop_transcribe_btn.config(state='disabled')
-
-        # Progress bar
-        self.transcribe_progress = ttk.Progressbar(right_frame, mode='indeterminate', length=300)
-        self.transcribe_progress.pack(fill=tk.X, pady=(10, 0))
-
-        # ===== SPLIT LOG AREA =====
-        # Use PanedWindow for resizable split
-        paned = tk.PanedWindow(container, orient=tk.VERTICAL, bg=KRAKEN['tentacle'],
-                               sashwidth=8, sashrelief='raised')
-        paned.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
-
-        # TOP: Status log (user-friendly messages)
-        status_frame = tk.Frame(paned, bg=KRAKEN['bg_mid'], bd=1, relief='solid')
-        status_header = tk.Label(status_frame, text="📜 STATUS - What's happening",
-                                font=('Segoe UI', 10, 'bold'), bg=KRAKEN['tentacle'],
-                                fg=KRAKEN['text_bright'], anchor='w', padx=10, pady=5)
-        status_header.pack(fill=tk.X)
-        self.log_text = tk.Text(status_frame, font=('Consolas', 11), bg=KRAKEN['bg_widget'],
-                               fg=KRAKEN['biolum'], insertbackground=KRAKEN['text'], relief='flat',
-                               wrap=tk.WORD, padx=10, pady=10)
-        self.log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        status_scroll = ttk.Scrollbar(self.log_text, command=self.log_text.yview)
-        status_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.log_text.config(yscrollcommand=status_scroll.set)
-        paned.add(status_frame, minsize=120)
-
-        # BOTTOM: Technical/engine log (copy-paste friendly)
-        tech_frame = tk.Frame(paned, bg=KRAKEN['bg_mid'], bd=1, relief='solid')
-        tech_header = tk.Label(tech_frame, text="🔧 ENGINE LOG - Copy this for debugging",
-                              font=('Segoe UI', 10, 'bold'), bg='#1a1a2e',
-                              fg='#888888', anchor='w', padx=10, pady=5)
-        tech_header.pack(fill=tk.X)
-        self.tech_log_text = tk.Text(tech_frame, font=('Consolas', 9), bg='#0d0d1a',
-                                    fg='#aaaaaa', insertbackground=KRAKEN['text'], relief='flat',
-                                    wrap=tk.NONE, padx=10, pady=10)
-        self.tech_log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # Horizontal scrollbar for long lines
-        tech_hscroll = ttk.Scrollbar(tech_frame, orient=tk.HORIZONTAL, command=self.tech_log_text.xview)
-        tech_hscroll.pack(side=tk.BOTTOM, fill=tk.X)
-        tech_scroll = ttk.Scrollbar(self.tech_log_text, command=self.tech_log_text.yview)
-        tech_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tech_log_text.config(yscrollcommand=tech_scroll.set, xscrollcommand=tech_hscroll.set)
-        paned.add(tech_frame, minsize=100)
-
-        # Initial messages
-        self.log("Ready. Select a file to transcribe.")
-        self.tech_log("Engine log initialized. Technical output from WhisperX/Pyannote will appear here.")
-
-    # ==================== TAB 3: SPEAKERS ====================
-    def setup_speakers_tab(self):
-        container = tk.Frame(self.speakers_tab, bg=KRAKEN['bg_dark'])
-        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        # Top controls
-        top_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        top_frame.pack(fill=tk.X, pady=(0, 10))
-
-        self.create_button(top_frame, "📂 Load Transcript", self.load_transcript_file, small=True).pack(side=tk.LEFT, padx=5)
-        self.create_button(top_frame, "📥 Load Mapping", self.load_mapping_file, small=True).pack(side=tk.LEFT, padx=5)
-        self.create_button(top_frame, "💾 Save Mapping", self.save_mapping_file, small=True).pack(side=tk.LEFT, padx=5)
-
-        # Current speaker display (large avatar during playback) - fixed size 80x80
-        current_speaker_frame = tk.Frame(top_frame, bg=KRAKEN['bg_mid'], bd=1, relief='solid')
-        current_speaker_frame.pack(side=tk.RIGHT, padx=(20, 0))
-
-        # Use a frame with fixed size to contain the avatar
-        avatar_container = tk.Frame(current_speaker_frame, bg=KRAKEN['bg_widget'], width=80, height=80)
-        avatar_container.pack(side=tk.LEFT, padx=5, pady=5)
-        avatar_container.pack_propagate(False)  # Prevent resizing
-
-        self.current_avatar_label = tk.Label(avatar_container, bg=KRAKEN['bg_widget'],
-                                            text="👤", font=('Segoe UI', 28))
-        self.current_avatar_label.pack(expand=True, fill=tk.BOTH)
-        self.current_avatar_image = None  # Keep reference
-
-        current_info_frame = tk.Frame(current_speaker_frame, bg=KRAKEN['bg_mid'])
-        current_info_frame.pack(side=tk.LEFT, padx=10, pady=5)
-
-        tk.Label(current_info_frame, text="NOW SPEAKING", font=('Segoe UI', 8),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text_dim']).pack(anchor='w')
-        self.current_speaker_name = tk.Label(current_info_frame, text="—", font=('Segoe UI', 12, 'bold'),
-                                            bg=KRAKEN['bg_mid'], fg=KRAKEN['biolum'])
-        self.current_speaker_name.pack(anchor='w')
-
-        # Playback controls frame
-        playback_frame = tk.Frame(top_frame, bg=KRAKEN['bg_dark'])
-        playback_frame.pack(side=tk.RIGHT, padx=(0, 10))
-
-        # Row 1: Play/Pause/Stop and time
-        controls_row = tk.Frame(playback_frame, bg=KRAKEN['bg_dark'])
-        controls_row.pack(fill=tk.X)
-
-        self.play_btn = self.create_button(controls_row, "▶ Play", self.start_playback, small=True)
-        self.play_btn.pack(side=tk.LEFT, padx=2)
-
-        self.pause_btn = self.create_button(controls_row, "⏸ Pause", self.pause_playback, small=True)
-        self.pause_btn.pack(side=tk.LEFT, padx=2)
-        self.pause_btn.config(state='disabled')
-
-        self.stop_btn = self.create_button(controls_row, "⏹ Stop", self.stop_playback, small=True)
-        self.stop_btn.pack(side=tk.LEFT, padx=2)
-
-        # Skip buttons
-        tk.Button(controls_row, text="⏪-10s", font=('Segoe UI', 9), bg=KRAKEN['bg_widget'],
-                 fg=KRAKEN['text'], activebackground=KRAKEN['accent'], bd=0, padx=6,
-                 command=lambda: self.skip_playback(-10)).pack(side=tk.LEFT, padx=2)
-        tk.Button(controls_row, text="⏪-5s", font=('Segoe UI', 9), bg=KRAKEN['bg_widget'],
-                 fg=KRAKEN['text'], activebackground=KRAKEN['accent'], bd=0, padx=6,
-                 command=lambda: self.skip_playback(-5)).pack(side=tk.LEFT, padx=2)
-        tk.Button(controls_row, text="+5s⏩", font=('Segoe UI', 9), bg=KRAKEN['bg_widget'],
-                 fg=KRAKEN['text'], activebackground=KRAKEN['accent'], bd=0, padx=6,
-                 command=lambda: self.skip_playback(5)).pack(side=tk.LEFT, padx=2)
-        tk.Button(controls_row, text="+10s⏩", font=('Segoe UI', 9), bg=KRAKEN['bg_widget'],
-                 fg=KRAKEN['text'], activebackground=KRAKEN['accent'], bd=0, padx=6,
-                 command=lambda: self.skip_playback(10)).pack(side=tk.LEFT, padx=2)
-
-        self.playback_time = tk.Label(controls_row, text="00:00 / 00:00", font=('Consolas', 11),
-                                     bg=KRAKEN['bg_dark'], fg=KRAKEN['accent_light'])
-        self.playback_time.pack(side=tk.LEFT, padx=10)
-
-        # Row 2: Scrub bar (seek slider)
-        scrub_row = tk.Frame(playback_frame, bg=KRAKEN['bg_dark'])
-        scrub_row.pack(fill=tk.X, pady=(5, 0))
-
-        self.scrub_var = tk.DoubleVar(value=0)
-        self.scrub_bar = tk.Scale(scrub_row, from_=0, to=100, orient=tk.HORIZONTAL,
-                                  variable=self.scrub_var, showvalue=False, length=300,
-                                  bg=KRAKEN['bg_widget'], fg=KRAKEN['accent'],
-                                  troughcolor=KRAKEN['bg_dark'], highlightthickness=0,
-                                  sliderrelief='flat', command=self.on_scrub)
-        self.scrub_bar.pack(fill=tk.X, expand=True)
-
-        # Main content - speakers list with canvas scroll
-        main_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        main_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Scrollable speaker list
-        self.speakers_canvas = tk.Canvas(main_frame, bg=KRAKEN['bg_dark'], highlightthickness=0)
-        speakers_scrollbar = ttk.Scrollbar(main_frame, orient='vertical', command=self.speakers_canvas.yview)
-        self.speakers_frame = tk.Frame(self.speakers_canvas, bg=KRAKEN['bg_dark'])
-
-        self.speakers_frame.bind('<Configure>', lambda e: self.speakers_canvas.configure(scrollregion=self.speakers_canvas.bbox('all')))
-        self.speakers_window = self.speakers_canvas.create_window((0, 0), window=self.speakers_frame, anchor='nw')
-        self.speakers_canvas.configure(yscrollcommand=speakers_scrollbar.set)
-
-        self.speakers_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        speakers_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Bind mousewheel
-        self.speakers_canvas.bind_all('<MouseWheel>', lambda e: self.speakers_canvas.yview_scroll(int(-1*(e.delta/120)), 'units'))
-
-        # Bind canvas resize to relayout speaker cards
-        self.speakers_canvas.bind('<Configure>', self.on_speakers_canvas_resize)
-        self.speaker_cards = []  # Store card widgets for relayout
-
-        # Bottom controls
-        bottom_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        bottom_frame.pack(fill=tk.X, pady=(15, 0))
-
-        self.apply_btn = self.create_button(bottom_frame, "✨ APPLY NAMES", self.apply_speaker_names, large=True)
-        self.apply_btn.pack()
-
-        # Speaker entry widgets storage
-        self.speaker_entries = {}
-        self.speaker_indicators = {}
-        self.speaker_cards = []  # For grid layout
-
-    # ==================== TAB 4: PREVIEW ====================
-    def setup_preview_tab(self):
-        container = tk.Frame(self.preview_tab, bg=KRAKEN['bg_dark'])
-        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
-
-        # Top controls
-        top_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        top_frame.pack(fill=tk.X, pady=(0, 10))
-
-        self.create_button(top_frame, "💾 Save As...", self.save_transcript, small=True).pack(side=tk.LEFT, padx=5)
-        self.create_button(top_frame, "📋 Copy All", self.copy_transcript, small=True).pack(side=tk.LEFT, padx=5)
-
-        # Preview text area
-        preview_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], bd=1, relief='solid')
-        preview_frame.pack(fill=tk.BOTH, expand=True)
-
-        self.preview_text = tk.Text(preview_frame, font=('Consolas', 10), bg=KRAKEN['bg_widget'],
-                                   fg=KRAKEN['text'], insertbackground=KRAKEN['text'], relief='flat',
-                                   wrap=tk.WORD, padx=15, pady=15)
-        self.preview_text.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
-
-        preview_scroll = ttk.Scrollbar(preview_frame, command=self.preview_text.yview)
-        preview_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.preview_text.config(yscrollcommand=preview_scroll.set)
-
-    # ==================== TAB 5: BARD'S TALE ====================
-    def setup_bard_tab(self):
-        container = tk.Frame(self.bard_tab, bg=KRAKEN['bg_dark'])
-        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
-
-        # Header
-        header_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        header_frame.pack(fill=tk.X, pady=(0, 15))
-
-        tk.Label(header_frame, text="🎭 The Bard's Tale", font=('Segoe UI', 16, 'bold'),
-                bg=KRAKEN['bg_dark'], fg=KRAKEN['accent_glow']).pack(side=tk.LEFT)
-
-        tk.Label(header_frame, text="Transform your session into a narrative story, as told by Zhree the Bard",
-                font=('Segoe UI', 10, 'italic'), bg=KRAKEN['bg_dark'], fg=KRAKEN['text_dim']).pack(side=tk.LEFT, padx=(15, 0))
-
-        # Settings section
-        settings_frame = self.create_section(container, "⚙️ SETTINGS")
-        settings_frame.pack(fill=tk.X, pady=(0, 15))
-
-        # Provider selection
-        provider_row = tk.Frame(settings_frame, bg=KRAKEN['bg_mid'])
-        provider_row.pack(fill=tk.X, pady=5)
-        tk.Label(provider_row, text="LLM Provider:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=15, anchor='w').pack(side=tk.LEFT)
-        self.llm_provider = tk.StringVar(value="Ollama (Local)")
-        provider_combo = ttk.Combobox(provider_row, textvariable=self.llm_provider, width=22, state='readonly',
-                                      values=["Ollama (Local)", "Groq (Cloud)"])
-        provider_combo.pack(side=tk.LEFT, padx=(10, 0))
-        provider_combo.bind('<<ComboboxSelected>>', self.on_provider_change)
-
-        # Model selection (dropdown populated from Ollama/Groq)
-        model_row = tk.Frame(settings_frame, bg=KRAKEN['bg_mid'])
-        model_row.pack(fill=tk.X, pady=5)
-        tk.Label(model_row, text="Model:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=15, anchor='w').pack(side=tk.LEFT)
-        self.ollama_model = tk.StringVar(value="")
-        self.model_combo = ttk.Combobox(model_row, textvariable=self.ollama_model, width=30, state='readonly')
-        self.model_combo.pack(side=tk.LEFT, padx=(10, 10))
-        self.refresh_models_btn = self.create_button(model_row, "🔄 Refresh", self.refresh_models, small=True)
-        self.refresh_models_btn.pack(side=tk.LEFT, padx=5)
-
-        # Bard name
-        bard_row = tk.Frame(settings_frame, bg=KRAKEN['bg_mid'])
-        bard_row.pack(fill=tk.X, pady=5)
-        tk.Label(bard_row, text="Bard's Name:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=15, anchor='w').pack(side=tk.LEFT)
-        self.bard_name = tk.StringVar(value="Zhree")
-        tk.Entry(bard_row, textvariable=self.bard_name, font=('Segoe UI', 10),
-                bg=KRAKEN['bg_widget'], fg=KRAKEN['text'], insertbackground=KRAKEN['text'],
-                relief='flat', width=25).pack(side=tk.LEFT, padx=(10, 0), ipady=4)
-
-        # Style selection (uses styles from src.core.narrative module)
-        style_row = tk.Frame(settings_frame, bg=KRAKEN['bg_mid'])
-        style_row.pack(fill=tk.X, pady=5)
-        tk.Label(style_row, text="Narrative Style:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=15, anchor='w').pack(side=tk.LEFT)
-        self.narrative_style = tk.StringVar(value="Epic Fantasy")
-        style_combo = ttk.Combobox(style_row, textvariable=self.narrative_style, width=22, state='readonly',
-                                   values=get_narrative_styles())
-        style_combo.pack(side=tk.LEFT, padx=(10, 0))
-
-
-        # Chunk size
-        chunk_row = tk.Frame(settings_frame, bg=KRAKEN['bg_mid'])
-        chunk_row.pack(fill=tk.X, pady=5)
-        tk.Label(chunk_row, text="Process in chunks:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text'], width=15, anchor='w').pack(side=tk.LEFT)
-        self.chunk_size = tk.StringVar(value="50")
-        tk.Entry(chunk_row, textvariable=self.chunk_size, font=('Segoe UI', 10),
-                bg=KRAKEN['bg_widget'], fg=KRAKEN['text'], insertbackground=KRAKEN['text'],
-                relief='flat', width=10).pack(side=tk.LEFT, padx=(10, 0), ipady=4)
-        tk.Label(chunk_row, text="lines at a time (smaller = more detail, larger = faster)",
-                font=('Segoe UI', 9), bg=KRAKEN['bg_mid'], fg=KRAKEN['text_dim']).pack(side=tk.LEFT, padx=(10, 0))
-
-        # Action buttons
-        button_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        button_frame.pack(fill=tk.X, pady=10)
-
-        self.bard_btn = self.create_button(button_frame, "🎭 SPIN THE TALE", self.start_bard_tale, large=True)
-        self.bard_btn.pack(side=tk.LEFT, padx=5)
-
-        self.summary_btn = self.create_button(button_frame, "📜 Summarize", self.start_session_summary, large=True)
-        self.summary_btn.pack(side=tk.LEFT, padx=5)
-
-        self.stop_bard_btn = self.create_button(button_frame, "⏹ Stop", self.stop_bard_tale, small=True)
-        self.stop_bard_btn.pack(side=tk.LEFT, padx=5)
-        self.stop_bard_btn.config(state='disabled')
-        
-        self.discord_btn = self.create_button(button_frame, "💬 Post to Discord", self.post_to_discord, small=True)
-        self.discord_btn.pack(side=tk.LEFT, padx=5)
-
-        self.create_button(button_frame, "💾 Save Tale", self.save_bard_tale, small=True).pack(side=tk.RIGHT, padx=5)
-        self.create_button(button_frame, "📋 Copy Tale", self.copy_bard_tale, small=True).pack(side=tk.RIGHT, padx=5)
-
-
-        # Progress
-        progress_frame = tk.Frame(container, bg=KRAKEN['bg_dark'])
-        progress_frame.pack(fill=tk.X, pady=5)
-
-        self.bard_progress = ttk.Progressbar(progress_frame, mode='determinate', length=400)
-        self.bard_progress.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-
-        self.bard_status = tk.Label(progress_frame, text="Ready to weave tales...", font=('Segoe UI', 9),
-                                   bg=KRAKEN['bg_dark'], fg=KRAKEN['text_dim'])
-        self.bard_status.pack(side=tk.LEFT)
-
-        # Party members with avatars
-        party_frame = self.create_section(container, "🎭 THE PARTY")
-        party_frame.pack(fill=tk.X, pady=(0, 10))
-
-        self.party_avatars_frame = tk.Frame(party_frame, bg=KRAKEN['bg_mid'])
-        self.party_avatars_frame.pack(fill=tk.X)
-
-        # Placeholder text
-        self.party_placeholder = tk.Label(self.party_avatars_frame,
-            text="Load a transcript with speakers to see the party members here",
-            font=('Segoe UI', 10, 'italic'), bg=KRAKEN['bg_mid'], fg=KRAKEN['text_dim'])
-        self.party_placeholder.pack(pady=10)
-
-        # Storage for party avatar images
-        self.party_avatar_images = {}
-
-        # Output area
-        output_frame = tk.Frame(container, bg=KRAKEN['bg_mid'], bd=1, relief='solid')
-        output_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
-
-        # Add a nice header bar
-        tale_header = tk.Frame(output_frame, bg=KRAKEN['tentacle'])
-        tale_header.pack(fill=tk.X)
-        tk.Label(tale_header, text="📜 THE TALE", font=('Segoe UI', 10, 'bold'),
-                bg=KRAKEN['tentacle'], fg=KRAKEN['text_bright'], anchor='w', padx=10, pady=5).pack(fill=tk.X)
-
-        self.bard_text = tk.Text(output_frame, font=('Georgia', 11), bg=KRAKEN['bg_widget'],
-                                fg=KRAKEN['text'], insertbackground=KRAKEN['text'], relief='flat',
-                                wrap=tk.WORD, padx=20, pady=15, spacing1=5, spacing2=3)
-        self.bard_text.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
-
-        bard_scroll = ttk.Scrollbar(output_frame, command=self.bard_text.yview)
-        bard_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.bard_text.config(yscrollcommand=bard_scroll.set)
-
-        # Configure text tags for styling
-        self.bard_text.tag_configure("title", font=('Georgia', 14, 'bold'), foreground=KRAKEN['accent_glow'],
-                                     spacing1=10, spacing3=10, justify='center')
-        self.bard_text.tag_configure("chapter", font=('Georgia', 12, 'bold italic'), foreground=KRAKEN['biolum'],
-                                     spacing1=15, spacing3=5)
-        self.bard_text.tag_configure("body", font=('Georgia', 11), foreground=KRAKEN['text'])
-
-        # State
-        self.bard_running = False
-        self.bard_stop_requested = False
-
-    # ==================== HELPER METHODS ====================
-    def create_section(self, parent, title):
-        """Create a styled section frame with title"""
-        frame = tk.Frame(parent, bg=KRAKEN['bg_mid'], bd=1, relief='solid')
-
-        title_bar = tk.Frame(frame, bg=KRAKEN['tentacle'])
-        title_bar.pack(fill=tk.X)
-        tk.Label(title_bar, text=title, font=('Segoe UI', 10, 'bold'), bg=KRAKEN['tentacle'],
-                fg=KRAKEN['text_bright'], anchor='w', padx=10, pady=5).pack(fill=tk.X)
-
-        content = tk.Frame(frame, bg=KRAKEN['bg_mid'], padx=15, pady=10)
-        content.pack(fill=tk.BOTH, expand=True)
-
-        return content
-
-    def create_button(self, parent, text, command, small=False, large=False):
-        """Create a styled button"""
-        if large:
-            font = ('Segoe UI', 12, 'bold')
-            padx, pady = 30, 12
-            bg = KRAKEN['accent']
-        elif small:
-            font = ('Segoe UI', 9)
-            padx, pady = 12, 5
-            bg = KRAKEN['bg_widget']
-        else:
-            font = ('Segoe UI', 10)
-            padx, pady = 15, 8
-            bg = KRAKEN['bg_widget']
-
-        btn = tk.Button(parent, text=text, font=font, bg=bg, fg=KRAKEN['text'],
-                       activebackground=KRAKEN['accent_light'], activeforeground=KRAKEN['text_bright'],
-                       bd=0, cursor='hand2', padx=padx, pady=pady, command=command)
-        return btn
 
     def log(self, message):
         """Add message to STATUS log (Thread-safe) - user-friendly messages"""
@@ -938,351 +443,8 @@ class KrakenSuite:
             self.set_status("Stopping transcription...")
 
     def run_transcription(self):
-        """Run transcription with detailed progress feedback"""
-        import sys
-        import logging
-        import warnings
-
-        # Initialize variables for cleanup
-        gui_handler = None
-        loggers_to_capture = []
-        original_showwarning = warnings.showwarning
-
-        try:
-            # Log immediately to confirm thread started
-            self.log("Transcription thread started...")
-
-            # Create a custom logging handler that sends messages to the TECH log
-            class GUILogHandler(logging.Handler):
-                def __init__(handler_self, tech_log_func):
-                    super().__init__()
-                    handler_self.tech_log_func = tech_log_func
-
-                def emit(handler_self, record):
-                    msg = handler_self.format(record)
-                    if msg.strip():
-                        handler_self.tech_log_func(f"[{record.name}] [{record.levelname}] {msg}")
-
-            # Create handler for capturing library output -> goes to ENGINE LOG
-            gui_handler = GUILogHandler(self.tech_log)
-            gui_handler.setLevel(logging.INFO)
-            gui_handler.setFormatter(logging.Formatter('%(message)s'))
-
-            # Attach handler to relevant loggers
-            loggers_to_capture = [
-                'whisperx', 'whisperx.asr', 'whisperx.vads', 'whisperx.vads.pyannote',
-                'pyannote', 'pyannote.audio', 'faster_whisper'
-            ]
-            for logger_name in loggers_to_capture:
-                logger = logging.getLogger(logger_name)
-                logger.addHandler(gui_handler)
-                logger.setLevel(logging.INFO)
-
-            # Also capture warnings -> goes to ENGINE LOG
-            def custom_showwarning(message, category, filename, lineno, file=None, line=None):
-                self.tech_log(f"[WARNING] {category.__name__}: {message}")
-            warnings.showwarning = custom_showwarning
-
-            # ===== STEP 1: Check prerequisites =====
-            self.log("=" * 50)
-            self.log("STARTING TRANSCRIPTION PIPELINE")
-            self.log("=" * 50)
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # Check for HuggingFace token
-            hf_token = self.config.get("hf_token", "").strip()
-            if not hf_token:
-                self.root.after(0, lambda: messagebox.showerror("Missing API Key",
-                    "HuggingFace token is required for speaker diarization.\n\n"
-                    "Click Settings (⚙️) to add your token.\n\n"
-                    "Get a free token at:\nhttps://huggingface.co/settings/tokens"))
-                self.root.after(0, self.transcription_failed)
-                return
-
-            # ===== STEP 2: Import libraries =====
-            self.log("")
-            self.log("[1/7] Loading libraries...")
-            self.tech_log("Importing whisperx...")
-            self.log("  → Importing WhisperX...")
-            import whisperx
-            self.tech_log("Importing DiarizationPipeline from whisperx.diarize...")
-            self.log("  → Importing Diarization Pipeline...")
-            from whisperx.diarize import DiarizationPipeline
-            self.tech_log("Importing torch...")
-            self.log("  → Importing PyTorch...")
-            import torch
-            self.tech_log(f"torch version: {torch.__version__}, CUDA available: {torch.cuda.is_available()}")
-            self.log("  ✓ Libraries loaded successfully")
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # ===== STEP 3: Setup device =====
-            self.log("")
-            self.log("[2/7] Setting up compute device...")
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            if device == "cuda":
-                gpu_name = torch.cuda.get_device_name(0)
-                gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
-                self.log(f"  → GPU: {gpu_name}")
-                self.log(f"  → VRAM: {gpu_memory:.1f} GB")
-                self.log(f"  ✓ Using CUDA acceleration")
-            else:
-                self.log("  → No CUDA GPU detected")
-                self.log("  ✓ Using CPU (slower)")
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # ===== STEP 4: Load audio =====
-            self.log("")
-            self.log("[3/7] Loading audio file...")
-            self.log(f"  → File: {os.path.basename(self.selected_file)}")
-            file_size = os.path.getsize(self.selected_file) / (1024 * 1024)
-            self.log(f"  → Size: {file_size:.1f} MB")
-            self.log("  → Extracting audio (ffmpeg)...")
-            self.tech_log(f"whisperx.load_audio('{self.selected_file}')")
-            audio = whisperx.load_audio(self.selected_file)
-            duration_seconds = len(audio) / 16000  # WhisperX uses 16kHz
-            duration_minutes = duration_seconds / 60
-            hours = int(duration_minutes // 60)
-            mins = int(duration_minutes % 60)
-            self.tech_log(f"Audio loaded: {len(audio)} samples, {duration_seconds:.1f}s")
-            self.log(f"  → Duration: {hours}h {mins}m")
-            self.log("  ✓ Audio loaded")
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # ===== STEP 5: Transcribe with Whisper =====
-            self.log("")
-            self.log("[4/7] Loading Whisper model...")
-            
-            # Get model from config (default to large-v2 for best accuracy)
-            whisper_model = self.config.get("whisper_model", "large-v2")
-            whisper_language = self.config.get("whisper_language", "auto")
-            self.log(f"  → Model: {whisper_model}")
-            self.log(f"  → Language: {whisper_language}")
-            compute_type = "float16" if device == "cuda" else "int8"
-            self.log(f"  → Compute type: {compute_type}")
-            self.log("  → Downloading/loading model weights...")
-            self.tech_log(f"whisperx.load_model('{whisper_model}', device='{device}', compute_type='{compute_type}')")
-            model = whisperx.load_model(whisper_model, device, compute_type=compute_type)
-            self.tech_log("Whisper model loaded successfully")
-            self.log("  ✓ Whisper model ready")
-
-
-            self.log("")
-            self.log("[5/7] Transcribing audio...")
-            self.log("  → This is the longest step - please wait...")
-            batch_size = 16 if device == "cuda" else 4
-            self.log(f"  → Batch size: {batch_size}")
-            
-            # Use specified language or auto-detect
-            if whisper_language and whisper_language != "auto":
-                self.log(f"  → Using language: {whisper_language}")
-                self.tech_log(f"model.transcribe(audio, batch_size={batch_size}, language='{whisper_language}') - STARTING")
-                result = model.transcribe(audio, batch_size=batch_size, language=whisper_language)
-            else:
-                self.log("  → Detecting language...")
-                self.tech_log(f"model.transcribe(audio, batch_size={batch_size}) - STARTING")
-                result = model.transcribe(audio, batch_size=batch_size)
-            
-            self.tech_log("model.transcribe() - COMPLETED")
-            detected_language = result.get("language", whisper_language if whisper_language != "auto" else "en")
-            num_segments = len(result.get("segments", []))
-            self.tech_log(f"Result: language={detected_language}, segments={num_segments}")
-
-            self.log(f"  → Language: {detected_language}")
-            self.log(f"  → Segments found: {num_segments}")
-            self.log("  ✓ Transcription complete")
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # Free memory
-            self.log("  → Releasing Whisper memory...")
-            del model
-            gc.collect()
-            if device == "cuda":
-                torch.cuda.empty_cache()
-            self.log("  ✓ Memory released")
-
-            # ===== STEP 6: Align words =====
-            self.log("")
-            self.log("[6/7] Aligning words to audio...")
-            self.log(f"  → Loading alignment model ({detected_language})...")
-            self.tech_log(f"whisperx.load_align_model(language_code='{detected_language}', device='{device}')")
-            model_a, metadata = whisperx.load_align_model(language_code=detected_language, device=device)
-            self.tech_log("Alignment model loaded")
-            self.log("  ✓ Alignment model loaded")
-            self.log("  → Aligning transcript...")
-            self.tech_log("whisperx.align() - STARTING")
-            result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
-            self.tech_log("whisperx.align() - COMPLETED")
-            self.log("  ✓ Alignment complete")
-
-            # Free memory
-            self.log("  → Releasing alignment model...")
-            del model_a
-            gc.collect()
-            self.tech_log("Alignment model released from memory")
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # ===== STEP 7: Speaker diarization =====
-            self.log("")
-            self.log("[7/7] Identifying speakers...")
-            self.log("  → Loading Pyannote diarization model...")
-            self.log("  → Authenticating with HuggingFace...")
-            self.tech_log(f"DiarizationPipeline(use_auth_token=hf_token, device='{device}')")
-            diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=device)
-            self.tech_log("Pyannote diarization model loaded")
-            self.log("  ✓ Diarization model loaded")
-            self.log("  → Analyzing voices (this takes a while)...")
-            self.log("  → Detecting who speaks when...")
-            self.tech_log("diarize_model(audio) - STARTING speaker diarization")
-            diarize_segments = diarize_model(audio)
-            self.tech_log(f"diarize_model() - COMPLETED, got {type(diarize_segments)}")
-            self.log("  ✓ Speaker diarization complete")
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # ===== STEP 8: Assign speakers to segments =====
-            self.log("")
-            self.log("Assigning speakers to transcript...")
-            self.tech_log("whisperx.assign_word_speakers() - STARTING")
-            result = whisperx.assign_word_speakers(diarize_segments, result)
-            self.tech_log("whisperx.assign_word_speakers() - COMPLETED")
-            self.log("  ✓ Speakers assigned")
-
-            if self.transcription_stop_requested:
-                raise Exception("Transcription stopped by user")
-
-            # ===== STEP 9: Build transcript =====
-            self.log("")
-            self.log("Building transcript...")
-            base_name = os.path.splitext(os.path.basename(self.selected_file))[0]
-            output_dir = os.path.dirname(self.selected_file)
-
-            lines = ["D&D Session Transcription", "=" * 50, f"File: {base_name}", ""]
-            self.segments_data = []
-            found_speakers = set()
-
-            for segment in result["segments"]:
-                speaker = segment.get("speaker", "UNKNOWN")
-                text = segment.get("text", "").strip()
-                start = segment.get("start", 0)
-                end = segment.get("end", start + 1)
-
-                if text:
-                    minutes = int(start // 60)
-                    seconds = int(start % 60)
-                    lines.append(f"[{minutes:02d}:{seconds:02d}] {speaker}: {text}")
-                    self.segments_data.append({
-                        "start": start,
-                        "end": end,
-                        "speaker": speaker,
-                        "text": text
-                    })
-                    found_speakers.add(speaker)
-
-            self.current_transcript = "\n".join(lines)
-            
-            # Apply D&D vocabulary corrections
-            self.log("  → Applying vocabulary corrections...")
-            self.current_transcript = self.apply_vocabulary_corrections(self.current_transcript)
-            
-            self.current_media_file = self.selected_file
-
-
-            # ===== STEP 10: Save files =====
-            self.log("")
-            self.log("Saving output files...")
-            txt_path = os.path.join(output_dir, f"{base_name}_notes.txt")
-            with open(txt_path, "w", encoding="utf-8") as f:
-                f.write(self.current_transcript)
-            self.log(f"  → Saved: {os.path.basename(txt_path)}")
-
-            json_path = os.path.join(output_dir, f"{base_name}_segments.json")
-            with open(json_path, "w", encoding="utf-8") as f:
-                json.dump({
-                    "media_file": self.selected_file,
-                    "segments": self.segments_data,
-                    "avatars": self.speaker_avatars
-                }, f, indent=2)
-            self.log(f"  → Saved: {os.path.basename(json_path)}")
-
-            self.current_output_file = txt_path
-
-            # Setup speakers
-            self.speakers = {s: s for s in sorted(found_speakers)}
-
-            # ===== STEP 11: Extract audio for playback =====
-            self.log("")
-            self.log("Extracting audio for playback...")
-            self.extract_audio(self.selected_file)
-
-            # ===== COMPLETE =====
-            self.log("")
-            self.log("=" * 50)
-            self.log("TRANSCRIPTION COMPLETE!")
-            self.log("=" * 50)
-            self.log(f"  → Found {len(found_speakers)} speakers: {', '.join(sorted(found_speakers))}")
-            self.log(f"  → Total segments: {len(self.segments_data)}")
-            self.log(f"  → Output: {txt_path}")
-            self.log("")
-            self.log("Next: Go to SPEAKERS tab to assign names.")
-
-            # Update UI
-            self.root.after(0, self.transcription_complete)
-
-        except Exception as e:
-            error_msg = str(e)
-            import traceback
-            tb = traceback.format_exc()
-
-            # Log to STATUS (user-friendly)
-            self.log("")
-            self.log("=" * 50)
-            if "stopped by user" in error_msg.lower():
-                self.log("TRANSCRIPTION STOPPED")
-            else:
-                self.log("TRANSCRIPTION FAILED")
-            self.log("=" * 50)
-            self.log(f"Error: {e}")
-            self.log("")
-            self.log("See ENGINE LOG below for full error details.")
-
-            # Log full traceback to ENGINE LOG (copy-paste for debugging)
-            self.tech_log("=" * 60)
-            self.tech_log("EXCEPTION OCCURRED")
-            self.tech_log("=" * 60)
-            self.tech_log(f"Exception type: {type(e).__name__}")
-            self.tech_log(f"Exception message: {e}")
-            self.tech_log("-" * 60)
-            self.tech_log("Full traceback:")
-            for line in tb.strip().split('\n'):
-                self.tech_log(line)
-            self.tech_log("=" * 60)
-
-            self.root.after(0, self.transcription_failed)
-
-        finally:
-            # Cleanup: Remove our logging handlers (if they were created)
-            if gui_handler is not None:
-                for logger_name in loggers_to_capture:
-                    logger = logging.getLogger(logger_name)
-                    try:
-                        logger.removeHandler(gui_handler)
-                    except:
-                        pass
-            # Restore original warning handler
-            warnings.showwarning = original_showwarning
+        """Run transcription using the separated TranscriptionManager."""
+        self.transcription_manager.run_transcription()
 
     def transcription_complete(self):
         self.is_transcribing = False
@@ -1764,33 +926,107 @@ class KrakenSuite:
         self.set_status("Speaker names applied with colors!")
 
 
+    # ==================== VIDEO PLAYER ====================
+    def toggle_video_player(self):
+        """Toggle the external video player window."""
+        if hasattr(self, 'video_window') and self.video_window and not self.video_window.is_closed:
+            self.video_window.on_close()
+            self.video_window = None
+            return
+
+        # We can open the window even for audio files (for visualization or just black screen)
+        # But mostly useful if we have a media file
+        
+        try:
+            self.video_window = VideoPlayerWindow(self.root)
+            
+            # If currently playing, we need to refresh the player to use the Video File + HWND
+            if self.is_playing and self.player:
+                # Capture current position
+                # stopping/playing causes a small blip but is necessary to attach HWND reliably on some systems
+                current_time = self.player.get_time()
+                is_audio_file = False
+                
+                # Check if we were playing the temp audio file? 
+                # Actually, simply calling start_playback again with the new state (window open)
+                # will force the logic in start_playback to pick the VIDEO file and attach HWND.
+                
+                self.player.stop()
+                
+                # Restart using standard logic (which now sees the window is open!)
+                # We pass the time to seek to.
+                seek_s = max(0, current_time / 1000.0)
+                self.start_playback(start_time=seek_s)
+                
+        except Exception as e:
+            self.log(f"Error opening video window: {e}")
+            messagebox.showerror("Video Error", str(e))
+
+
     # ==================== PLAYBACK FUNCTIONS ====================
     def start_playback(self, start_time=0):
         """Start or resume playback from a specific time"""
-        if not self.temp_audio_file or not os.path.exists(self.temp_audio_file):
-            messagebox.showwarning("No Audio", "No audio file available for playback")
+        if not self.player:
+            messagebox.showerror("Error", "VLC not found or initialized.")
             return
 
-        # If paused, resume from where we left off
-        if self.is_paused:
-            start_time = self.playback_offset
-            self.is_paused = False
+        # LOGIC CHANGE:
+        # If Video Window is OPEN -> Use Video File (current_media_file)
+        # If Video Window is CLOSED -> Use Audio File (temp_audio_file) to prevent VLC popup
+        
+        want_video = hasattr(self, 'video_window') and self.video_window and not self.video_window.is_closed
+        
+        if want_video and self.current_media_file and os.path.exists(self.current_media_file):
+            media_path = self.current_media_file
+        elif self.temp_audio_file and os.path.exists(self.temp_audio_file):
+            media_path = self.temp_audio_file
+        elif self.current_media_file and os.path.exists(self.current_media_file):
+            # Fallback: No temp audio, must use video file even if window is closed
+            # (We will try to suppress video in this edge case later if needed, but usually we have audio)
+            media_path = self.current_media_file
+        else:
+            messagebox.showwarning("No Media", "No audio or video file available.")
+            return
+
+        # If paused and just resuming (and media seems correct?), just play
+        # Note: If we switched from Audio->Video or Video->Audio, we must re-load, so we check media path
+        current_media = self.player.get_media()
+        # Complex check: get mrl from current media to see if it matches
+        # For simplicity, if we are paused, we assume the user state hasn't changed drastically unless toggle_video was called.
+        # But if toggle_video was called, it handles the switch. 
+        # So here, standard Resume is safe.
+        if self.is_paused and current_media:
+             self.player.play()
+             self.is_paused = False
+             self.is_playing = True
+             self.play_btn.config(state='disabled')
+             self.pause_btn.config(state='normal')
+             self.update_playback()
+             return
 
         try:
-            # Stop any existing playback
-            if self.playback_process:
-                self.playback_process.terminate()
-                self.playback_process = None
+            # Create new media
+            media = self.vlc_instance.media_new(media_path)
+            self.player.set_media(media)
+            
+            # Attach video window IF we decided we wanted video
+            if want_video:
+                hwnd = self.video_window.get_handle()
+                self.player.set_hwnd(hwnd)
+            else:
+                # IMPORTANT: Ensure we don't hold onto an old HWND if we switched to audio
+                self.player.set_hwnd(0) # 0 or None detaches on most systems
 
-            # Start ffplay with seek position
-            cmd = ["ffplay", "-nodisp", "-autoexit", "-ss", str(start_time), self.temp_audio_file]
-            self.playback_process = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+            self.player.play()
+            
+            if start_time > 0:
+                 self._pending_seek = start_time
+            else:
+                 self._pending_seek = None
+
             self.is_playing = True
-            self.playback_start_time = time.time()
-            self.playback_offset = start_time
-
+            self.is_paused = False
+            
             # Update button states
             self.play_btn.config(state='disabled')
             self.pause_btn.config(state='normal')
@@ -1800,14 +1036,8 @@ class KrakenSuite:
 
     def pause_playback(self):
         """Pause playback and remember position"""
-        if self.is_playing and self.playback_process:
-            # Calculate current position
-            elapsed = time.time() - self.playback_start_time + self.playback_offset
-            self.playback_offset = elapsed
-
-            # Stop the process
-            self.playback_process.terminate()
-            self.playback_process = None
+        if self.player and self.is_playing:
+            self.player.pause()
             self.is_playing = False
             self.is_paused = True
 
@@ -1817,18 +1047,22 @@ class KrakenSuite:
 
     def stop_playback(self):
         """Stop playback completely"""
-        if self.playback_process:
-            self.playback_process.terminate()
-            self.playback_process = None
+        if self.player:
+            self.player.stop()
+            self._pending_seek = None
+        
         self.is_playing = False
         self.is_paused = False
+        self.playback_start_time = None
         self.playback_offset = 0
-
-        # Update button states
+        
         self.play_btn.config(state='normal', text="▶ Play")
         self.pause_btn.config(state='disabled')
+        
         self.reset_speaker_indicators()
-        self.playback_time.config(text=f"00:00 / {self.format_time(self.audio_duration)}")
+        # Reset text unless we are scrubbing
+        if not getattr(self, 'is_scrubbing', False):
+            self.playback_time.config(text=f"00:00 / {self.format_time(self.audio_duration)}")
 
     def format_time(self, seconds):
         """Format seconds as MM:SS"""
@@ -1837,124 +1071,157 @@ class KrakenSuite:
 
     def skip_playback(self, delta_seconds):
         """Skip forward or backward by delta_seconds"""
-        if not self.temp_audio_file:
+        if not self.player:
             return
 
         # Calculate new position
-        new_pos = self.playback_offset + delta_seconds
+        # Get current time from VLC if playing, or use offset if paused
+        if self.is_playing:
+            current_time = self.player.get_time() / 1000.0
+            if current_time < 0: current_time = 0
+        else:
+            current_time = self.playback_offset
+            
+        new_pos = current_time + delta_seconds
         new_pos = max(0, min(new_pos, self.audio_duration))  # Clamp to valid range
 
-        # If playing, restart from new position
-        if self.is_playing and not self.is_paused:
-            self.stop_playback()
-            self.start_playback(new_pos)
-        else:
-            # Just update the offset for when play resumes
-            self.playback_offset = new_pos
-            self.playback_time.config(text=f"{self.format_time(new_pos)} / {self.format_time(self.audio_duration)}")
-            self.scrub_var.set(new_pos)
+        # Apply seek
+        self.player.set_time(int(new_pos * 1000))
+        self.playback_offset = new_pos
+        
+        self.playback_time.config(text=f"{self.format_time(new_pos)} / {self.format_time(self.audio_duration)}")
+        self.scrub_var.set(new_pos)
+
+    def on_scrub_start(self, event):
+        """User started dragging scrub bar"""
+        self.is_scrubbing = True
+        # Note: We don't necessarily need to pause VLC, smooth seeking is possible
+        # But stopping UI updates prevents fighting
+    
+    def on_scrub_end(self, event):
+        """User released scrub bar"""
+        self.is_scrubbing = False
+        new_pos = self.scrub_var.get()
+        if self.player:
+            self.player.set_time(int(new_pos * 1000))
+            # Ensure we are playing if we were
+            if not self.is_playing and not self.is_paused:
+                # If we were stopped, maybe start playing?
+                # For now, just update offset
+                self.playback_offset = new_pos
 
     def on_scrub(self, value):
         """Handle scrub bar movement"""
-        if not self.temp_audio_file or self.audio_duration <= 0:
-            return
-
-        new_pos = float(value)
-
-        # If playing, restart from new position
-        if self.is_playing and not self.is_paused:
-            self.stop_playback()
-            self.start_playback(new_pos)
-        else:
-            # Just update the offset for when play resumes
-            self.playback_offset = new_pos
+        if self.is_scrubbing and self.player:
+            # Live seek while dragging (silver bullet!)
+            # Only do this if system is fast enough? 
+            # VLC handles it well usually.
+            new_pos = float(value)
+            # Debounce? Na, let's try raw power.
+            self.player.set_time(int(new_pos * 1000))
             self.playback_time.config(text=f"{self.format_time(new_pos)} / {self.format_time(self.audio_duration)}")
 
     def play_speaker_sample(self, speaker_id):
         """Play a sample clip of a specific speaker"""
-        # Check for audio file
+        # (Same setup logic...)
+        if not self.player: return
+        
         if not self.temp_audio_file or not os.path.exists(self.temp_audio_file):
-            # Try to extract from current media file if available
-            if self.current_media_file and os.path.exists(self.current_media_file):
-                self.log(f"Extracting audio for playback...")
-                self.extract_audio(self.current_media_file)
-            else:
-                messagebox.showwarning("No Audio", "No audio file available for playback.\nLoad the original media file first.")
-                return
+             # Try fallback to media file
+             if self.current_media_file:
+                 pass # Logic below handles it
+             else:
+                 messagebox.showwarning("No Audio", "No media available")
+                 return
 
-        if not self.temp_audio_file or not os.path.exists(self.temp_audio_file):
-            messagebox.showwarning("No Audio", "Could not extract audio for playback.")
-            return
-
-        # Find segments for this speaker
+        # Speaker segment finding logic...
         speaker_segments = [s for s in self.segments_data if s.get("speaker") == speaker_id]
-
-        # Debug: log what we're looking for
         if not speaker_segments:
             # Show what speakers we have
             all_speakers = set(s.get("speaker", "") for s in self.segments_data)
             self.log(f"No segments for '{speaker_id}'. Available: {all_speakers}")
             return
 
-        # Pick a segment with reasonable length (not too short)
+        # Pick best segment logic...
         best_segment = None
         for seg in speaker_segments:
-            seg_duration = seg.get("end", 0) - seg.get("start", 0)
-            if seg_duration >= 2:  # At least 2 seconds
+            if (seg.get("end", 0) - seg.get("start", 0)) >= 2:
                 best_segment = seg
                 break
-        if not best_segment:
-            best_segment = speaker_segments[0]
+        if not best_segment: best_segment = speaker_segments[0]
 
-        start_time = max(0, best_segment.get("start", 0) - 0.5)  # Start slightly early
-        end_time = best_segment.get("end", 0) + 0.5
-        play_duration = min(10, end_time - start_time)  # Play up to 10 seconds
-
-        self.log(f"Playing {speaker_id} @ {self.format_time(start_time)} ({play_duration:.1f}s)")
-        self.log(f"  Text: \"{best_segment.get('text', '')[:50]}...\"")
-
+        start_time = max(0, best_segment.get("start", 0) - 0.5)
+        play_duration = min(10, best_segment.get("end", 0) - start_time + 0.5)
+        
+        # Determine media
+        media_path = self.current_media_file if self.current_media_file else self.temp_audio_file
+        
         try:
-            # Stop any existing playback
-            if self.playback_process:
-                self.playback_process.terminate()
-                self.playback_process = None
-
-            # Play just this segment
-            cmd = ["ffplay", "-nodisp", "-autoexit", "-ss", str(start_time), "-t", str(play_duration), self.temp_audio_file]
-            self.playback_process = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+            # Stop existing
+            self.stop_playback()
+            
+            # Setup new playback
+            media = self.vlc_instance.media_new(media_path)
+            self.player.set_media(media)
+            self.player.play()
+            
+            # Seek
+            self._pending_seek = start_time
+            # Schedule stop
+            self._stop_time = start_time + play_duration
+            
             self.is_playing = True
             self.is_paused = False
-            self.playback_start_time = time.time()
-            self.playback_offset = start_time
-
             self.play_btn.config(state='disabled')
             self.pause_btn.config(state='normal')
             self.update_playback()
+            
         except Exception as e:
             self.log(f"Sample playback error: {e}")
 
     def update_playback(self):
-        if not self.is_playing:
+        if not self.is_playing or not self.player:
             return
 
-        if self.playback_process and self.playback_process.poll() is not None:
+        # Check for end of media
+        state = self.player.get_state()
+        if state == vlc.State.Ended or state == vlc.State.Error:
             self.stop_playback()
             return
+            
+        # Handle pending seek (sometimes needed if set_time failed during start)
+        if getattr(self, '_pending_seek', None) is not None:
+             if self.player.is_playing():
+                 self.player.set_time(int(self._pending_seek * 1000))
+                 self._pending_seek = None
 
-        elapsed = time.time() - self.playback_start_time + self.playback_offset
+        # Get current time
+        # VLC returns time in ms
+        t_ms = self.player.get_time()
+        elapsed = max(0, t_ms / 1000.0)
+        self.playback_offset = elapsed 
+        
+        # Handle auto-stop (for speaker samples)
+        if getattr(self, '_stop_time', None) is not None:
+            if elapsed >= self._stop_time:
+                self.stop_playback()
+                self._stop_time = None
+                return
+
         current_time = self.format_time(elapsed)
         total_time = self.format_time(self.audio_duration) if self.audio_duration > 0 else "--:--"
         self.playback_time.config(text=f"{current_time} / {total_time}")
 
-        # Update scrub bar position (without triggering callback)
-        self.scrub_var.set(elapsed)
+        # Update scrub bar position (without triggering callback loop if we are careful)
+        # If user is scrubbing, DON'T update the bar from playback
+        if not getattr(self, 'is_scrubbing', False):
+            self.scrub_var.set(elapsed)
 
         # Update speaker indicators
         self.update_speaker_indicators(elapsed)
-
-        self.root.after(100, self.update_playback)
+        
+        # Loop
+        self.root.after(50, self.update_playback)
 
     def update_speaker_indicators(self, current_time):
         active_speakers = set()
@@ -2213,7 +1480,23 @@ class KrakenSuite:
 
     def on_provider_change(self, event=None):
         """Handle provider selection change"""
+        # Save provider to config
+        self.config["llm_provider"] = self.llm_provider.get()
+        # We don't save immediately to disk to avoid lag, but it will be saved next time config is saved
         self.refresh_models()
+
+    def on_model_change(self, event=None):
+        """Handle model selection change"""
+        model = self.ollama_model.get()
+        provider = self.llm_provider.get()
+        
+        if "Groq" in provider:
+            self.config["groq_model"] = model
+        else:
+            self.config["ollama_model"] = model
+            
+        # Optional: Save config to disk immediately for robustness
+        save_config(self.config)
 
     def refresh_models(self):
         """Refresh the model dropdown based on selected provider"""

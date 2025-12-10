@@ -114,19 +114,19 @@ class SettingsDialog:
         self.ollama_model_var = tk.StringVar(value=self.config.get("ollama_model", ""))
         self.groq_key_var = tk.StringVar(value=self.config.get("groq_api_key", ""))
         self.groq_url_var = tk.StringVar(value=self.config.get("groq_url", "https://api.groq.com/openai/v1/chat/completions"))
-        self.mic_device_var = tk.StringVar(value=self.config.get("mic_device", ""))
-        self.system_device_var = tk.StringVar(value=self.config.get("system_device", ""))
         
-        # Transcription settings (whisper model/language are handled directly by comboboxes)
+        # Transcription settings variables
+        self.whisper_model_var = tk.StringVar(value=self.config.get("whisper_model", "large-v2"))
+        self.whisper_lang_var = tk.StringVar(value=self.config.get("whisper_language", "auto"))
         self.auto_transcribe_var = tk.BooleanVar(value=self.config.get("auto_transcribe", False))
         self.apply_vocabulary_var = tk.BooleanVar(value=self.config.get("apply_vocabulary", True))
         
         # Discord integration
         self.discord_webhook_var = tk.StringVar(value=self.config.get("discord_webhook", ""))
-
         
-        # Audio Devices Section
-        self._create_audio_section(inner_frame)
+        # LLM Models variables
+        self.groq_model_var = tk.StringVar(value=self.config.get("groq_model", ""))
+
         
         # Transcription Section (NEW)
         self._create_transcription_section(inner_frame)
@@ -149,45 +149,7 @@ class SettingsDialog:
 
 
     
-    def _create_audio_section(self, parent):
-        """Create the audio devices configuration section."""
-        audio_frame = tk.LabelFrame(parent, text="🎙️ Audio Devices (Recording)", 
-                                   font=('Segoe UI', 10, 'bold'),
-                                   bg=KRAKEN['bg_mid'], fg=KRAKEN['accent_light'], 
-                                   padx=10, pady=10)
-        audio_frame.pack(fill=tk.X, pady=(0, 15))
-        
-        # Get available audio devices
-        try:
-            devices = sd.query_devices()
-            input_devices = [(i, d['name']) for i, d in enumerate(devices) if d['max_input_channels'] > 0]
-            input_names = [name for i, name in input_devices]
-            output_devices = [(i, d['name']) for i, d in enumerate(devices) if d['max_output_channels'] > 0]
-            output_names = [name for i, name in output_devices]
-            system_device_names = input_names + [f"[OUTPUT] {name}" for name in output_names if name not in input_names]
-        except:
-            input_names = []
-            system_device_names = []
-        
-        # Microphone selector
-        tk.Label(audio_frame, text="Microphone:", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text']).pack(anchor='w')
-        mic_combo = ttk.Combobox(audio_frame, textvariable=self.mic_device_var, 
-                                width=45, values=input_names)
-        mic_combo.pack(fill=tk.X, pady=(2, 8), ipady=2)
-        
-        # System audio selector
-        tk.Label(audio_frame, text="System Audio (what you hear):", font=('Segoe UI', 10),
-                bg=KRAKEN['bg_mid'], fg=KRAKEN['text']).pack(anchor='w')
-        system_combo = ttk.Combobox(audio_frame, textvariable=self.system_device_var, 
-                                   width=45, values=system_device_names)
-        system_combo.pack(fill=tk.X, pady=(2, 5), ipady=2)
-        
-        # Tip
-        tk.Label(audio_frame, 
-                text="Tip: Look for 'Stereo Mix', 'What U Hear', or [OUTPUT] device for loopback",
-                font=('Segoe UI', 8), bg=KRAKEN['bg_mid'], fg=KRAKEN['text_dim']).pack(anchor='w')
-    
+
     def _create_transcription_section(self, parent):
         """Create the transcription settings section."""
         trans_frame = tk.LabelFrame(parent, text="📝 Transcription Settings",
@@ -196,41 +158,37 @@ class SettingsDialog:
                                    padx=10, pady=10)
         trans_frame.pack(fill=tk.X, pady=(0, 15))
 
-        # Whisper model selector (NO textvariable - we'll read .get() on save)
+        # Whisper model selector
         tk.Label(trans_frame, text="Whisper Model:", font=('Segoe UI', 10),
                 bg=KRAKEN['bg_mid'], fg=KRAKEN['text']).pack(anchor='w')
 
-        self.model_combo = ttk.Combobox(trans_frame, width=30, state='readonly', values=WHISPER_MODELS)
+        self.model_combo = ttk.Combobox(trans_frame, textvariable=self.whisper_model_var, width=30, state='normal', values=WHISPER_MODELS)
+        self.model_combo.bind('<Key>', lambda e: "break")  # Prevent typing
         self.model_combo.pack(fill=tk.X, pady=(2, 5), ipady=2)
 
-        # Set current value from config
-        current_model = self.config.get("whisper_model", "large-v2")
-        if current_model in WHISPER_MODELS:
-            self.model_combo.current(WHISPER_MODELS.index(current_model))
-        else:
-            self.model_combo.current(4)  # Default to large-v2
+        # Ensure valid initial value
+        if self.whisper_model_var.get() not in WHISPER_MODELS:
+            self.whisper_model_var.set("large-v2")
 
         # Model descriptions
         tk.Label(trans_frame,
                 text="tiny/base: Fast, less accurate | medium: Balanced | large-v2: Best accuracy",
                 font=('Segoe UI', 8), bg=KRAKEN['bg_mid'], fg=KRAKEN['text_dim']).pack(anchor='w')
 
-        # Language selector (NO textvariable - we'll read .get() on save)
+        # Language selector
         tk.Label(trans_frame, text="Language:", font=('Segoe UI', 10),
                 bg=KRAKEN['bg_mid'], fg=KRAKEN['text']).pack(anchor='w', pady=(10, 0))
 
         # Create language code list
         self.lang_codes = [code for code, name in WHISPER_LANGUAGES]
 
-        self.lang_combo = ttk.Combobox(trans_frame, width=30, state='readonly', values=self.lang_codes)
+        self.lang_combo = ttk.Combobox(trans_frame, textvariable=self.whisper_lang_var, width=30, state='normal', values=self.lang_codes)
+        self.lang_combo.bind('<Key>', lambda e: "break")
         self.lang_combo.pack(fill=tk.X, pady=(2, 5), ipady=2)
 
-        # Set current value from config
-        current_lang = self.config.get("whisper_language", "auto")
-        if current_lang in self.lang_codes:
-            self.lang_combo.current(self.lang_codes.index(current_lang))
-        else:
-            self.lang_combo.current(0)  # Default to auto
+        # Ensure valid initial value
+        if self.whisper_lang_var.get() not in self.lang_codes:
+            self.whisper_lang_var.set("auto")
 
         tk.Label(trans_frame,
                 text="'auto' detects language automatically (recommended for English)",
@@ -305,7 +263,8 @@ class SettingsDialog:
         model_row.pack(fill=tk.X, pady=(2, 5))
         
         self.ollama_model_combo = ttk.Combobox(model_row, textvariable=self.ollama_model_var, 
-                                               width=35, state='readonly')
+                                               width=35, state='normal')
+        self.ollama_model_combo.bind('<Key>', lambda e: "break")
         self.ollama_model_combo.pack(side=tk.LEFT, ipady=2)
         
         refresh_btn = tk.Button(model_row, text="🔄 Refresh", font=('Segoe UI', 9),
@@ -351,15 +310,13 @@ class SettingsDialog:
         tk.Label(groq_frame, text="Default Model:", font=('Segoe UI', 10),
                 bg=KRAKEN['bg_mid'], fg=KRAKEN['text']).pack(anchor='w')
 
-        self.groq_model_combo = ttk.Combobox(groq_frame, width=40, state='readonly', values=GROQ_MODELS)
+        self.groq_model_combo = ttk.Combobox(groq_frame, textvariable=self.groq_model_var, width=40, state='normal', values=GROQ_MODELS)
+        self.groq_model_combo.bind('<Key>', lambda e: "break")
         self.groq_model_combo.pack(fill=tk.X, pady=(2, 5), ipady=2)
 
-        # Set current value from config
-        current_groq = self.config.get("groq_model", "")
-        if current_groq in GROQ_MODELS:
-            self.groq_model_combo.current(GROQ_MODELS.index(current_groq))
-        elif GROQ_MODELS:
-            self.groq_model_combo.current(0)  # Default to first model
+        # Ensure valid initial value
+        if self.groq_model_var.get() == "" and GROQ_MODELS:
+            self.groq_model_var.set(GROQ_MODELS[0])
     
     def _create_discord_section(self, parent):
         """Create the Discord webhook configuration section."""
@@ -439,13 +396,11 @@ class SettingsDialog:
         self.config["ollama_model"] = self.ollama_model_var.get().strip()
         self.config["groq_api_key"] = self.groq_key_var.get().strip()
         self.config["groq_url"] = self.groq_url_var.get().strip()
-        self.config["groq_model"] = self.groq_model_combo.get()
-        self.config["mic_device"] = self.mic_device_var.get().strip()
-        self.config["system_device"] = self.system_device_var.get().strip()
+        self.config["groq_model"] = self.groq_model_var.get().strip()
 
-        # Transcription settings - read directly from comboboxes
-        self.config["whisper_model"] = self.model_combo.get()
-        self.config["whisper_language"] = self.lang_combo.get()
+        # Transcription settings
+        self.config["whisper_model"] = self.whisper_model_var.get()
+        self.config["whisper_language"] = self.whisper_lang_var.get()
         self.config["auto_transcribe"] = self.auto_transcribe_var.get()
         self.config["apply_vocabulary"] = self.apply_vocabulary_var.get()
 

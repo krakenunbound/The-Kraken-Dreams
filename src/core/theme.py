@@ -185,7 +185,19 @@ def get_style_config():
                 'fieldbackground': KRAKEN['bg_widget'],
                 'foreground': KRAKEN['text'],
                 'background': KRAKEN['bg_widget'],
-                'arrowcolor': KRAKEN['accent']
+                'arrowcolor': KRAKEN['accent'],
+                'selectbackground': KRAKEN['accent'],
+                'selectforeground': KRAKEN['text_bright']
+            },
+            'map': {
+                'fieldbackground': [
+                    ('readonly', KRAKEN['bg_widget']),
+                    ('disabled', KRAKEN['bg_dark'])
+                ],
+                'foreground': [
+                    ('readonly', KRAKEN['text']),
+                    ('disabled', KRAKEN['text_dim'])
+                ]
             }
         },
         'TLabelframe': {

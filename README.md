@@ -2,12 +2,11 @@
 
 ## D&D Session Transcription & Narrative Suite
 
-A desktop application for transcribing and transforming your tabletop RPG sessions into narrative stories.
+A desktop application for transcribing and transforming your tabletop RPG sessions into narrative stories using AI.
 
-**Version:** 1.4.0 | **License:** MIT | **Platform:** Windows, Linux, macOS
+**Version:** 1.5.0 | **License:** MIT | **Platform:** Windows, Linux, macOS
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 
 ---
 
@@ -32,51 +31,34 @@ A desktop application for transcribing and transforming your tabletop RPG sessio
 
 ## ✨ Features
 
-### 🎬 Recording (via OBS Studio)
-The app includes a guide for recording your sessions with [OBS Studio](https://obsproject.com/) (free), which reliably captures both your microphone and system audio (Discord). After recording, simply drag your file into the Transcribe tab.
+### 🎬 Workflow (OBS Integration)
+The app is designed to work seamlessly with [OBS Studio](https://obsproject.com/) recordings. Reliability is key: record your session with OBS, then drag the file into The Kraken to begin magic.
 
 ### 📝 Transcription
-- **WhisperX integration** - Fast, accurate speech-to-text
-- **Speaker diarization** - Automatically identify who said what
-- **Model selection** - Choose speed vs. accuracy (tiny → large-v2)
-- **Language options** - Force specific language or auto-detect
-- **D&D vocabulary** - Built-in corrections for fantasy terms
-- **Punctuation improvements** - Better sentence boundaries
+- **WhisperX integration** - Fast, accurate speech-to-text with word-level timestamps.
+- **Speaker diarization** - Automatically identifies unique speakers (Voice 1, Voice 2...).
+- **Model selection** - Choose speed vs. accuracy (tiny → large-v2).
+- **Language options** - Force specific language or auto-detect.
+- **D&D vocabulary** - Automatic correction for common fantasy terms (initiative, dexterity, etc.).
 
 ### 👥 Speaker Management
-- **Assign names** - Replace "SPEAKER_01" with character names
-- **Gender selection** - Helps AI use correct pronouns
-- **Avatar support** - Assign character portraits to speakers
-- **Color coding** - Each speaker gets a unique color
-- **Save/load mappings** - Reuse speaker assignments across sessions
+- **VLC-Powered Playback** - Instant seeking and smooth video playback.
+- **Visual Identification** - Syncs with video so you can *see* who is talking (e.g., Discord overlay).
+- **Assign Names** - Replace "SPEAKER_01" with character names effortlessly.
+- **Avatar Support** - Assign character portraits to speakers for a visual interface.
+- **Color Coding** - Each speaker gets a unique color for readability.
 
 ### 📖 Bard's Tale (AI Narratives)
-- **Transform transcripts** - Turn session logs into prose stories
-- **Multiple styles** - Epic Fantasy, Tavern Tale, Dramatic Chronicle, and more
-- **LLM options** - Ollama (local) or Groq (cloud, free tier)
-- **Session summaries** - Short, Discord-ready recaps
-- **Character avatars** - Party portraits displayed in UI
+- **Transform Transcripts** - Turn raw session logs into flowing prose stories.
+- **Narrative Styles** - Epic Fantasy, Tavern Tale, Dramatic Chronicle, and more.
+- **LLM Options** - Use **Ollama** (free, local) or **Groq** (cloud, ultra-fast).
+- **Session Summaries** - Generate short, Discord-ready recaps with one click.
+- **The Party** - Automatically populated character roster based on your transcript.
 
 ### 💬 Integrations
-- **Discord webhook** - Post summaries directly to Discord
-- **Obsidian export** - Wikilinks and YAML frontmatter
-- **Multiple formats** - TXT, Markdown, HTML export
-- **Full-text search** - Search across all transcripts (Ctrl+F)
-
-### 🗃️ Campaign Management
-- **Session database** - SQLite storage for campaigns
-- **Campaign tracker** - Link sessions, characters, locations
-- **Persistent settings** - Remembers window position and preferences
-
----
-
-## ⌨️ Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| **Ctrl+T** | Begin Transcription |
-| **Ctrl+S** | Save Transcript |
-| **Ctrl+F** | Search All Transcripts |
+- **Discord Webhook** - Post summaries directly to your campaign channel.
+- **Export Options** - TXT, Markdown, HTML.
+- **Full-Text Search** - Search across all your past session transcripts instantly.
 
 ---
 
@@ -85,92 +67,89 @@ The app includes a guide for recording your sessions with [OBS Studio](https://o
 ### Hardware
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
-| GPU | - | NVIDIA 8GB+ VRAM |
-| RAM | 8GB | 16GB+ |
-| Storage | 5GB | 10GB+ |
+| **GPU** | - | **NVIDIA 8GB+ VRAM** (Critical for reasonable speed) |
+| **RAM** | 8GB | 16GB+ |
+| **Storage** | 5GB | 10GB+ |
 
-> Note: Transcription works on CPU but is significantly slower.
+> **Note:** Transcription works on CPU but is *significantly* slower. A 4-hour session might take 1 hour on GPU, but 10+ hours on CPU.
 
 ### Software
-- **Windows 10/11**, **Linux**, or **macOS**
-- Python 3.10-3.12
-- FFmpeg
-- NVIDIA CUDA Toolkit (optional, for GPU acceleration)
-- [OBS Studio](https://obsproject.com/) (for recording sessions)
-
+- **OS**: Windows 10/11 (Preferred), Linux, or macOS.
+- **Python**: 3.10 - 3.12.
+- **VLC Media Player**: Required for audio/video playback engine. [Download VLC](https://www.videolan.org/vlc/).
+- **FFmpeg**: Required for audio extraction.
+- **OBS Studio**: Recommended for recording.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start Guide
 
-### 1. Install Dependencies
+### 1. Install System Dependencies
 
 <details>
-<summary><b>🪟 Windows</b></summary>
+<summary><b>🪟 Windows Setup</b></summary>
 
-```bash
-# Install FFmpeg
-winget install ffmpeg
+1. **Install FFmpeg**
+   ```powershell
+   winget install ffmpeg
+   ```
+2. **Install VLC Media Player**
+   - Download from [videolan.org](https://www.videolan.org/vlc/) or run `winget install VideoLAN.VLC`.
+3. **Install Python Requirements**
+   ```powershell
+   # 1. Install PyTorch with CUDA (for NVIDIA GPUs)
+   pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 
-# Install PyTorch with CUDA (GPU)
-pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+   # 2. Install WhisperX
+   pip install git+https://github.com/m-bain/whisperx.git
 
-# Install WhisperX
-pip install git+https://github.com/m-bain/whisperx.git
-
-# Install other dependencies
-pip install -r requirements.txt
-```
+   # 3. Install App Dependencies from the project folder
+   pip install -r requirements.txt
+   ```
 </details>
 
 <details>
-<summary><b>🐧 Linux (Ubuntu/Debian)</b></summary>
+<summary><b>🐧 Linux Setup</b></summary>
 
 ```bash
-# Install system dependencies
+# 1. System packages
 sudo apt update
-sudo apt install ffmpeg python3-tk python3-pip
+sudo apt install ffmpeg vlc python3-tk python3-pip
 
-# Install PyTorch with CUDA (GPU)
+# 2. PyTorch with CUDA
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-# Install WhisperX
+# 3. WhisperX
 pip install git+https://github.com/m-bain/whisperx.git
 
-# Install other dependencies
+# 4. App Dependencies
 pip install -r requirements.txt
 ```
 </details>
 
-<details>
-<summary><b>🍎 macOS</b></summary>
+### 2. Get Your API Tokens
 
-```bash
-# Install FFmpeg
-brew install ffmpeg
-
-# Install PyTorch
-pip install torch torchvision torchaudio
-
-# Install WhisperX
-pip install git+https://github.com/m-bain/whisperx.git
-
-# Install other dependencies
-pip install -r requirements.txt
-```
-</details>
-
-
-### 2. Get HuggingFace Token
-
-1. Create account at [huggingface.co](https://huggingface.co/join)
-2. Accept model licenses:
+#### A. HuggingFace Token (For Speaker Identification)
+*Required for the Pyannote AI model that distinguishes between different voices.*
+1. Create an account at [huggingface.co](https://huggingface.co/join).
+2. Visit and accept the user conditions for these two models:
    - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
    - [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
-3. Create token at [Settings → Tokens](https://huggingface.co/settings/tokens)
-4. Enter token in app Settings
+3. Go to [Settings → Tokens](https://huggingface.co/settings/tokens).
+4. Create a new token (Type: **Read**).
+5. Copy this token—you will paste it into the app's settings.
 
-### 3. Run the App
+#### B. LLM Provider (For Bard's Tale Stories)
+*Choose one of the following:*
+*   **Ollama (Local, Free, Private):**
+    1. Download from [ollama.ai](https://ollama.ai).
+    2. Run `ollama pull llama3` (or your preferred model) in terminal.
+    3. The app connects automatically.
+*   **Groq (Cloud, Fast, Free Tier):**
+    1. Get an API Key from [console.groq.com](https://console.groq.com).
+    2. Paste the key into the app's settings.
+
+### 3. Run The Kraken
 
 ```bash
 python kraken_suite.py
@@ -178,85 +157,49 @@ python kraken_suite.py
 
 ---
 
-## 🎬 Recording Your Sessions
-
-This app does **not** include built-in recording. Use [OBS Studio](https://obsproject.com/) (free) to capture your sessions:
-
-1. **Download OBS** from [obsproject.com](https://obsproject.com/download)
-2. **Configure audio sources:**
-   - Desktop Audio → Your speakers/headphones (captures Discord)
-   - Mic/Auxiliary Audio → Your microphone
-3. **Add a Window Capture** → Select your Discord voice chat window
-4. **Set output format** to MP4 or MKV (Settings → Output)
-5. **Click "Start Recording"** when your session begins
-6. **Drag the recorded file** into The Kraken Dreams' Transcribe tab
-
-**Why capture Discord video?** Discord shows a green ring around whoever is speaking. When assigning names in the Speakers tab, you can play back the video to easily see who was talking - much easier than recognizing voices by ear!
-
-> The Record tab in the app provides detailed setup instructions.
-
----
-
 ## 📁 Project Structure
 
 ```
 The-Kraken-Dreams/
-├── kraken_suite.py          # Main application
+├── kraken_suite.py          # Main application entry point
 ├── requirements.txt         # Python dependencies
-├── src/                     # Source modules
-│   ├── core/                # Core functionality
-│   └── ui/                  # UI components
-├── screenshots/             # Application screenshots
-├── transcripts/             # Saved transcripts (auto-created, gitignored)
-└── avatars/                 # Character images (auto-created, gitignored)
+├── src/                     # Source code modules
+│   ├── core/                # Backend logic (AI, config, narrative)
+│   └── ui/                  # Frontend components (Tabs, Widgets)
+├── screenshots/             # Images for README
+├── transcripts/             # Exported transcripts (auto-generated)
+└── avatars/                 # Character portraits (auto-generated)
 ```
 
 ### Avatars Folder
-
-The `avatars/` folder is where you store character portraits:
-
-- **Not tracked in git** - Your personal character images stay private
-- **Supported formats** - PNG, JPG, GIF
-- **Recommended size** - 100x100 to 200x200 pixels
-- **How to use** - Click the avatar circle in the Speakers tab to assign images
-
-Store player character portraits, NPC images, or any artwork you want associated with speakers in your transcripts.
+Place character images in the `avatars/` folder.
+- **Privacy:** This folder is ignored by git (`.gitignore`), so your personal campaign art stays private.
+- **Usage:** Click the empty circle in the "Speakers" tab to assign an image to a voice.
 
 ---
 
-## 🔧 Troubleshooting
+## 🔧 Troubleshooting Common Issues
 
 | Issue | Solution |
 |-------|----------|
-| "No module named 'whisperx'" | `pip install git+https://github.com/m-bain/whisperx.git` |
-| "CUDA not available" | Reinstall PyTorch with CUDA (see Quick Start) |
-| Drag-drop not working | `pip install tkinterdnd2` |
-| Settings too tall | Scroll down - the dialog is scrollable |
+| **"VLC not found"** | Install VLC Media Player. If installed, ensure it matches your Python bit-version (usually 64-bit). |
+| **"No module named whisperx"** | Run the git install command: `pip install git+https://github.com/m-bain/whisperx.git` |
+| **Playback is silent** | Check that your system audio isn't muted and VLC volume is up. |
+| **"CUDA not available"** | You are running on CPU mode. Reinstall PyTorch with the specific CUDA index URL. |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome!
-
-- Report bugs via GitHub Issues
-- Submit pull requests
-- Suggest new narrative styles for Bard's Tale
-
----
-
-## 🙏 Acknowledgments
-
-- [WhisperX](https://github.com/m-bain/whisperx) - Fast transcription
-- [Pyannote](https://github.com/pyannote/pyannote-audio) - Speaker diarization
-- [Ollama](https://ollama.ai/) - Local LLM inference
-- [Groq](https://groq.com/) - Cloud LLM inference
-- [OBS Studio](https://obsproject.com/) - Session recording
+Contributions are welcome! Please ensure you:
+1. **Test Locally:** Verify that transcription and playback work.
+2. **Lint:** Keep code clean and readable.
+3. **Ignore Secrets:** Never commit `kraken_config.json` or `.env` files containing API keys.
 
 ---
 
 ## 📜 License
 
-MIT License - See [LICENSE](LICENSE) for details.
+[MIT License](LICENSE) - Free to use, modify, and distribute.
 
 *Release the Kraken! 🐙*

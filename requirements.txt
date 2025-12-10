@@ -8,6 +8,9 @@ tkinterdnd2>=0.3.0
 # Cross-platform notifications (Windows, Linux, macOS)
 plyer>=2.1.0
 
+# VLC Bindings (Required for playback engine)
+python-vlc>=3.0.0
+
 # Note: WhisperX and Torch are required for transcription but depend on your hardware (CUDA vs CPU)
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 # pip install git+https://github.com/m-bain/whisperx.git
